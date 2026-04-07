@@ -1,0 +1,56 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+pnpm-debug.log*
+
+# Dependencies
+node_modules/
+dist
+dist-ssr
+*.local
+
+# Environment variables (NEVER commit these - they contain secrets)
+.env
+.env.local
+.env.*.local
+
+# Build outputs
+build/
+*.tsbuildinfo
+.cache/
+
+# IDE & Editor
+.vscode/
+.vscode-settings.json
+.idea/
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw[op]
+*~
+
+# OS files
+Thumbs.db
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Backend specific
+be/.env
+be/.env.local
+be/.env.*.local
+
+# Frontend specific
+fe/bookstore_fe/coverage/
+fe/bookstore_fe/.tsbuildinfo
+
+# Misc
+.turbo/
+dist/
+coverage/
