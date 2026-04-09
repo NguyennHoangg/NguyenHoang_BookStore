@@ -4,7 +4,7 @@
  * Based on Fashion Store API Specification v1.0
  */
 
-const httpStatus = require('./httpStatus');
+const httpStatus = require('./httpStatus.constant');
 
 // ==================== AUTHENTICATION ERRORS ====================
 const AUTH_ERRORS = {
@@ -371,15 +371,12 @@ const GENERAL_ERRORS = {
 };
 
 module.exports = {
-  // Classes
-  AppError,
-  
   // Error Constants
   AUTH_ERRORS,
   VALIDATION_ERRORS,
   USER_ERRORS,
   ADDRESS_ERRORS,
-  PRODUCT_ERRORS,
+  BOOK_ERRORS,
   CART_ERRORS,
   ORDER_ERRORS,
   PAYMENT_ERRORS,

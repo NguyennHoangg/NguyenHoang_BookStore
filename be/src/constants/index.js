@@ -6,7 +6,7 @@ const {
   GENERAL_ERRORS,
   ORDER_ERRORS,
   PAYMENT_ERRORS,
-  PRODUCT_ERRORS,
+  BOOK_ERRORS,
   RATE_LIMIT_ERRORS,
   REVIEW_ERRORS,
   USER_ERRORS,
@@ -16,6 +16,8 @@ const {
   createValidationError,
   formatErrorResponse,
 } = require("./errors.constant");
+const HTTP_STATUS = require("./httpStatus.constant");
+
 
 module.exports = {
   AUTH_ERRORS,
@@ -26,7 +28,6 @@ module.exports = {
   ORDER_ERRORS,
   BOOK_ERRORS,
   PAYMENT_ERRORS,
-  PRODUCT_ERRORS,
   RATE_LIMIT_ERRORS,
   REVIEW_ERRORS,
   USER_ERRORS,
@@ -35,5 +36,5 @@ module.exports = {
   createError,
   createValidationError,
   formatErrorResponse,
-  httpStatus,
+  HTTP_STATUS
 };
