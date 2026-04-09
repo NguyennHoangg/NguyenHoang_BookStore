@@ -370,74 +370,6 @@ const GENERAL_ERRORS = {
   }
 };
 
-// ==================== HELPER FUNCTIONS ====================
-
-/**
- * Create AppError from error constant
- * @param {Object} errorConstant - Error constant object
- * @param {string|null} customMessage - Custom error message (optional)
- * @param {Array|Object|null} details - Additional error details (optional)
- * @returns {AppError}
- */
-const createError = (errorConstant, customMessage = null, details = null) => {
-  return new AppError(
-    customMessage || errorConstant.message,
-    errorConstant.statusCode,
-    errorConstant.errorCode,
-    details
-  );
-};
-
-/**
- * Create validation error with field details
- * @param {Array} fieldErrors - Array of field validation errors
- * @returns {AppError}
- */
-const createValidationError = (fieldErrors) => {
-  return new AppError(
-    'Dữ liệu không hợp lệ',
-    httpStatus.BAD_REQUEST,
-    'VALIDATION_ERROR',
-    fieldErrors
-  );
-};
-
-/**
- * Format error response
- * @param {Error} error - Error object
- * @param {string} path - Request path
- * @param {string} requestId - Request ID
- * @returns {Object}
- */
-const formatErrorResponse = (error, path, requestId) => {
-  if (error instanceof AppError) {
-    return {
-      success: false,
-      error: {
-        code: error.errorCode,
-        message: error.message,
-        details: error.details,
-        timestamp: error.timestamp,
-        path: path,
-        requestId: requestId
-      }
-    };
-  }
-
-  // Unknown error
-  return {
-    success: false,
-    error: {
-      code: 'INTERNAL_SERVER_ERROR',
-      message: 'Đã xảy ra lỗi không xác định',
-      timestamp: new Date().toISOString(),
-      path: path,
-      requestId: requestId
-    }
-  };
-};
-
-// ==================== EXPORTS ====================
 module.exports = {
   // Classes
   AppError,
@@ -456,9 +388,4 @@ module.exports = {
   RATE_LIMIT_ERRORS,
   DB_ERRORS,
   GENERAL_ERRORS,
-  
-  // Helper Functions
-  createError,
-  createValidationError,
-  formatErrorResponse
 };
