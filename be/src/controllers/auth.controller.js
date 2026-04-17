@@ -18,7 +18,7 @@ const loginController = async (req, res, next) => {
             maxAge: 7 * 24 * 60 * 60 * 1000, // 7 ngày
         });
 
-
+        //Trả về data và token
         res.status(HTTP_STATUS.OK).json({ 
             success: true,
             data: {
