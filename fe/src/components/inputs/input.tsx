@@ -1,3 +1,5 @@
+import { useId } from "react";
+
 interface InputProps {
   label?: string;
   placeholder?: string;
@@ -19,25 +21,37 @@ export default function Input({
   disabled = false,
   className,
 }: InputProps) {
+  const id = useId();
+
   return (
-    <div className={`flex flex-col gap-2 ${className || ""}`}>
+    <div className={`flex flex-col gap-1 ${className || ""}`}>
       {label && (
-        <label className="text-label-md font-sans font-semibold uppercase tracking-wide text-on-surface-variant">
+        <label
+          htmlFor={id}
+          className="font-sans text-body-sm font-semibold text-on-surface"
+        >
           {label}
         </label>
       )}
       <input
+        id={id}
         type={type}
         placeholder={placeholder}
         value={value}
         onChange={onChange}
         disabled={disabled}
-        className="w-full px-4 py-3 bg-surface-container-low text-on-surface font-sans text-body-md  transition-all duration-200 focus:outline-none focus:border-primary-container disabled:opacity-50 disabled:cursor-not-allowed"
+        className={`
+          w-full px-4 py-3 rounded-md bg-white font-sans text-body-md text-on-surface
+          border transition-all duration-150 focus:outline-none
+          disabled:opacity-40 disabled:cursor-not-allowed
+          ${error
+            ? "border-error focus:border-error"
+            : "border-outline-variant focus:border-on-surface"
+          }
+        `}
       />
       {error && (
-        <span className="text-label-sm font-sans text-error">
-          {error}
-        </span>
+        <span className="font-sans text-label-sm text-error">{error}</span>
       )}
     </div>
   );
