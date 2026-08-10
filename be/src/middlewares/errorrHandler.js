@@ -40,7 +40,7 @@ const errorHandler = (err, req, res, next) => {
       stack: err.stack,
     },
   };
-  console.error(JSON.stringify(errLog)); // Log lỗi dưới dạng JSON
+  console.error(JSON.stringify(errLog, null, 2)); // Log lỗi dưới dạng JSON
 
   let processError = err;
   let statusCode = err.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR;
