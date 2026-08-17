@@ -27,12 +27,12 @@ const loginController = async (req, res, next) => {
     // Lưu refresh token vào Redis
     await saveRefreshToken(user.userid, refreshToken);
 
-    // Gửi refresh token qua httpOnly cookie (bảo mật hơn)
+    // Gửi refresh token qua httpOnly cookie 
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 ngày (ms)
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
     res.status(HTTP_STATUS.OK).json({
@@ -83,7 +83,9 @@ const logoutController = async (req, res, next) => {
         const remaining = decoded.exp - Math.floor(Date.now() / 1000);
         if (remaining > 0) accessTokenTTL = remaining;
       }
-    } catch (_) {}
+    } catch (error) {
+      next(error);
+    }
 
     // userId từ req.user (đã được set bởi authMiddleware)
     const userId = req.user?.userid;
@@ -127,12 +129,48 @@ const refreshTokenController = async (req, res, next) => {
 
 const registerController = async (req, res, next) => {
   try {
-    const { identifier, password, fullname } = req.body;
-    const newUser = await register(identifier, password, fullname);
+    const { identifier, identifierValue, password, fullName } = req.body;
+    const newUser = await register(identifier, identifierValue, password, fullName);
+
+    // Cấp token ngay sau khi đăng ký thành công (auto-login)
+    const accessToken = jwtUtil.generateAccessToken(
+      { userid: newUser.userid, role: newUser.role },
+      process.env.JWT_EXPIRES_IN,
+    );
+    const refreshToken = jwtUtil.generateRefreshToken(
+      { userid: newUser.userid, role: newUser.role },
+      process.env.JWT_REFRESH_EXPIRES_IN,
+    );
+
+    // Lưu refresh token vào Redis
+    await saveRefreshToken(newUser.userid, refreshToken);
+
+    // Gửi refresh token qua httpOnly cookie
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
 
     return res.status(HTTP_STATUS.CREATED).json({
       success: true,
       message: "Đăng ký thành công",
+      data: {
+        id: newUser.userid,
+        email: newUser.email || (identifier === "EMAIL" ? identifierValue : null),
+        fullname: newUser.fullname,
+        role: newUser.role,
+        phone: newUser.phone || null,
+        address: newUser.address || null,
+        dob: newUser.dob || null,
+        gender: newUser.gender || null,
+        isactive: newUser.isactive,
+      },
+      token: {
+        accessToken,
+        expiresIn: process.env.JWT_EXPIRES_IN,
+      },
     });
   } catch (error) {
     next(error);

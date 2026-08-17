@@ -5,7 +5,7 @@
 
 const { body, validationResult } = require('express-validator');
 const { HTTP_STATUS } = require('../../constants');
-const { createValidationError } = require('../../constants/errors');
+const { AppError } = require('../../errors/AppError');
 
 /**
  * Middleware để xử lý kết quả validation
@@ -14,16 +14,12 @@ const handleValidationErrors = (req, res, next) => {
   const errors = validationResult(req);
   
   if (!errors.isEmpty()) {
-    const errorMessages = errors.array().map(err => ({
+    const fieldErrors = errors.array().map(err => ({
       field: err.path || err.param,
       message: err.msg
     }));
 
-    return res.status(HTTP_STATUS.BAD_REQUEST).json({
-      success: false,
-      message: 'Dữ liệu không hợp lệ',
-      errors: errorMessages
-    });
+    return next(new AppError('Dữ liệu không hợp lệ', HTTP_STATUS.BAD_REQUEST, 'VALIDATION_ERROR', fieldErrors));
   }
   
   next();

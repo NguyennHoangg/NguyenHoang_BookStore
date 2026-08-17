@@ -1,5 +1,6 @@
 import { ShoppingCartIcon, UserIcon } from "@heroicons/react/24/outline";
 import { useNavigate } from "react-router-dom";
+import useAuth from "../../hooks/useAuth";
 
 export default function Header() {
   const navigate = useNavigate();
@@ -8,6 +9,8 @@ export default function Header() {
     navigate(value);
   };
 
+  const { user } = useAuth();
+
   return (
     <header className="glass-navbar sticky top-0 z-50 bg-surface border-b border-black">
       <div className="mx-auto flex items-center justify-between px-12">
@@ -15,7 +18,6 @@ export default function Header() {
         <div className="flex items-center gap-4">
           <img src="/logo.webp" alt="Bookstore Logo" className="h-[100px] w-auto" />
           <div className="flex flex-col">
-         
             <h3 className="text-headline-sm font-serif text-primary-container">
               NguyenHoang_BookStore
             </h3>
@@ -72,11 +74,16 @@ export default function Header() {
           </button>
           <button
             onClick={() => handleClickButton("/account")}
-            className="p-2 text-on-surface hover:text-primary-container transition-colors duration-200 hover:bg-surface-container-low rounded-none"
+            className="flex items-center gap-2 p-2 text-on-surface hover:text-primary-container transition-colors duration-200 hover:bg-surface-container-low rounded-none"
             title="Account"
             aria-label="Account"
           >
             <UserIcon className="h-6 w-6 stroke-2" />
+            {user && (
+              <span className="text-body-sm font-sans text-black">
+                {user.fullName}
+              </span>
+            )}
           </button>
         </div>
       </div>

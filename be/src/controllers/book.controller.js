@@ -1,4 +1,4 @@
-const { getBooksService, getBookByURLService, getFavoriteBooksService, getTopSellingBooksService } = require("../services/book.service");
+const { getBooksService, getBookByURLService, getFavoriteBooksService, getTopSellingBooksService, getNewBooksService } = require("../services/book.service");
 const { HTTP_STATUS }    = require("../constants");
 
 const getBooksController = async (req, res, next) => {
@@ -71,5 +71,17 @@ const getTopSellingBooksController = async (req, res, next) => {
     }
 };
 
+const getNewBooksController = async (req, res, next) => {
+    try {
+        const books = await getNewBooksService();
+        return res.status(HTTP_STATUS.OK).json({
+            success: true,
+            data: books,
+        });
+    } catch (error) {
+        next(error);
+    }
+};
 
-module.exports = { getBooksController, getBookByURLController, getFavoriteBooksController, getTopSellingBooksController };
+
+module.exports = { getBooksController, getBookByURLController, getFavoriteBooksController, getTopSellingBooksController, getNewBooksController };

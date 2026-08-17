@@ -29,16 +29,22 @@ const getOrSet = async (key, fetchFn, ttl = DEFAULT_TTL_SECONDS) => {
 
     // Không có trong cache → lấy từ DB
     logger.debug(`[Cache] MISS — ${key}`);
-    const freshData = await fetchFn();
-
-    // Lưu vào cache
-    await client.setEx(key, ttl, JSON.stringify(freshData));
-    return freshData;
   } catch (err) {
     // Redis lỗi giữa chừng → fallback về DB, không crash app
     logger.error(`[Cache] Lỗi Redis, fallback DB — ${key}: ${err.message}`);
     return await fetchFn(); // Bug fix: thiếu message trong console.error gốc
   }
+
+  //Laays dữ liệu từ database
+  const freshData = await fetchFn();
+  
+  try {
+    await client.setEx(key, ttl, JSON.stringify(freshData));
+    return freshData;
+  } catch (error) {
+    logger.error(`[Cache] Lỗi lưu cache — ${key}: ${error.message}`);
+  }
+  return freshData;
 };
 
 /**
@@ -110,4 +116,22 @@ const get = async (key) => {
   }
 };
 
-module.exports = { getOrSet, del, delPattern, set, get };
+const increaseLoginAttempts = async (key, LOCK_OUT_TIME) => {
+  const client = getRedis();
+  if (!client) {
+    return;
+  }
+
+  
+  try {
+    const count = await client.incr(key);
+    if (count === 1) {
+      await client.expire(key, LOCK_OUT_TIME);
+    }
+    logger.debug(`[Cache] Login attemp: ${count} for ${key}`);
+  } catch (error) {
+    logger.error(`[Cache] Lỗi tăng login attemp — ${key}: ${error.message}`);
+  }
+};
+
+module.exports = { getOrSet, del, delPattern, set, get, increaseLoginAttempts };

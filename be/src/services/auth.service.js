@@ -1,5 +1,6 @@
 const {
   findByCredential,
+  createAccount,
   createUser,
   updateLastLoginAt,
 } = require("../models/user.model");
@@ -9,6 +10,7 @@ const {
   HTTP_STATUS,
   AUTH_ERRORS,
   VALIDATION_ERRORS,
+  RATE_LIMIT_ERRORS,
 } = require("../constants");
 const {
   generateErrorId,
@@ -32,17 +34,20 @@ const REFRESH_TOKEN_TTL = 7 * 24 * 60 * 60;
 
 //login attemp limit configuration
 const MAX_LOGIN_ATTEMPTS = 5;
-//15 minutes
-const LOCK_OUT_TIME = 15 * 60 * 1000;
+// 15 phút tính bằng giây (dùng cho Redis TTL)
+const LOCK_OUT_TIME_SECONDS = 15 * 60;
 
 const login = async (email, password) => {
   try {
     const attemptsKey = CACHE_KEYS.LOGIN_ATTEMPTS(email);
-    const attemps = await redisCache.get(attemptsKey);
+    const attempts = await redisCache.get(attemptsKey);
 
-    if (parseInt(attemps) >= MAX_LOGIN_ATTEMPTS) {
+    logger.debug(`[AUTH] Login attempts for ${email}: ${attempts}`);
+
+    // null nghĩa là chưa có lần thử nào → cho phép đăng nhập bình thường
+    if (parseInt(attempts) >= MAX_LOGIN_ATTEMPTS) {
       throw createError(
-        HTTP_STATUS.TOO_MANY_REQUESTS,
+        RATE_LIMIT_ERRORS.RATE_LIMIT_EXCEEDED,
         "Tài khoản của bạn đã bị khóa tạm thời do nhập sai mật khẩu quá nhiều lần. Vui lòng thử lại sau 15 phút.",
       );
     }
@@ -50,20 +55,21 @@ const login = async (email, password) => {
     // Kiểm tra xem tài khoản có tồn tại không
     const account = await findByCredential(email);
     if (!account) {
-      await redisCache.increaseLoginAttempts(email, LOCK_OUT_TIME);
-      throw createError(
-        HTTP_STATUS.UNAUTHORIZED,
-        AUTH_ERRORS.INVALID_CREDENTIALS,
-      );
+      // Tăng số lần thất bại kể cả khi không tìm thấy tài khoản
+      await redisCache.increaseLoginAttempts(attemptsKey, LOCK_OUT_TIME_SECONDS);
+      throw createError(AUTH_ERRORS.AUTH_CREDENTIALS_INVALID);
     }
+
     // So sánh mật khẩu đã nhập với mật khẩu đã lưu trong cơ sở dữ liệu
     const isMatch = await bcrypt.compare(password, account.passwordhash);
     if (!isMatch) {
-      throw createError(
-        HTTP_STATUS.UNAUTHORIZED,
-        AUTH_ERRORS.INVALID_CREDENTIALS,
-      );
+      await redisCache.increaseLoginAttempts(attemptsKey, LOCK_OUT_TIME_SECONDS);
+      throw createError(AUTH_ERRORS.AUTH_CREDENTIALS_INVALID);
     }
+
+    // Đăng nhập thành công → reset số lần thử
+    await redisCache.del(attemptsKey);
+
     // Update last login time
     await updateLastLoginAt(account.accountid);
     return account;
@@ -124,20 +130,20 @@ const isTokenBlacklisted = async (token) => {
  */
 const refreshAccessToken = async (refreshToken) => {
   if (!refreshToken) {
-    throw createError(HTTP_STATUS.UNAUTHORIZED, AUTH_ERRORS.REFRESH_TOKEN_INVALID);
+    throw createError(AUTH_ERRORS.REFRESH_TOKEN_INVALID);
   }
 
   let decoded;
   try {
     decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
   } catch (err) {
-    throw createError(HTTP_STATUS.UNAUTHORIZED, AUTH_ERRORS.REFRESH_TOKEN_INVALID);
+    throw createError(AUTH_ERRORS.REFRESH_TOKEN_INVALID);
   }
 
   // Kiểm tra refresh token trong Redis có khớp không (chưa bị logout)
   const storedToken = await redisCache.get(CACHE_KEYS.REFRESH_TOKEN(decoded.userid));
   if (!storedToken || storedToken !== refreshToken) {
-    throw createError(HTTP_STATUS.UNAUTHORIZED, AUTH_ERRORS.REFRESH_TOKEN_INVALID);
+    throw createError(AUTH_ERRORS.REFRESH_TOKEN_INVALID);
   }
 
   // Cấp access token mới
@@ -152,46 +158,88 @@ const refreshAccessToken = async (refreshToken) => {
 
 /**
  * Register Function
- * @param {String} identifier
- * @param {String} password
- * @param {String} fullname
+ * @param {String} identifier - Loại định danh (EMAIL | PHONE)
+ * @param {String} identifierValue - Giá trị định danh (email hoặc số điện thoại)
+ * @param {String} password - Mật khẩu
+ * @param {String} fullName - Họ tên
  */
-const register = async (identifier, password, fullname) => {
+const register = async (identifier, identifierValue, password, fullName) => {
   try {
+    // ── Validate required fields ──
     if (!identifier) {
       throw createError(
-        HTTP_STATUS.BAD_REQUEST,
-        VALIDATION_ERRORS.MISSING_FIELDS,
+        VALIDATION_ERRORS.MISSING_REQUIRED_FIELD,
+        "Thiếu loại định danh (identifier)",
         { fields: ["identifier"] },
+      );
+    }
+    if (!identifierValue) {
+      throw createError(
+        VALIDATION_ERRORS.MISSING_REQUIRED_FIELD,
+        identifier === "EMAIL" ? "Email không được để trống" : "Số điện thoại không được để trống",
+        { fields: ["identifierValue"] },
       );
     }
     if (!password) {
       throw createError(
-        HTTP_STATUS.BAD_REQUEST,
-        VALIDATION_ERRORS.MISSING_FIELDS,
+        VALIDATION_ERRORS.MISSING_REQUIRED_FIELD,
+        "Mật khẩu không được để trống",
         { fields: ["password"] },
       );
     }
-    if (!fullname) {
+    if (!fullName) {
       throw createError(
-        HTTP_STATUS.BAD_REQUEST,
-        VALIDATION_ERRORS.MISSING_FIELDS,
-        { fields: ["fullname"] },
+        VALIDATION_ERRORS.MISSING_REQUIRED_FIELD,
+        "Họ và tên không được để trống",
+        { fields: ["fullName"] },
       );
     }
 
-    // Kiểm tra xem tài khoản đã tồn tại chưa
-    const existingAccount = await findByCredential(identifier);
-    if (existingAccount) {
-      throw createError(HTTP_STATUS.CONFLICT, AUTH_ERRORS.AUTH_ALLREADY_EXISTS);
+    // ── Validate email format ──
+    if (identifier === "EMAIL") {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(identifierValue)) {
+        throw createError(
+          VALIDATION_ERRORS.INVALID_EMAIL_FORMAT,
+          "Email không đúng định dạng",
+        );
+      }
     }
 
-    // Hash password
+    // ── Validate password strength: tối thiểu 8 ký tự, có chữ số hoặc ký tự đặc biệt ──
+    if (password.length < 8) {
+      throw createError(
+        AUTH_ERRORS.PASSWORD_TOO_WEAK,
+        "Mật khẩu phải có ít nhất 8 ký tự",
+      );
+    }
+    const hasNumberOrSpecial = /[0-9!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
+    if (!hasNumberOrSpecial) {
+      throw createError(
+        AUTH_ERRORS.PASSWORD_TOO_WEAK,
+        "Mật khẩu phải chứa ít nhất 1 chữ số hoặc ký tự đặc biệt",
+      );
+    }
+
+    // ── Kiểm tra tài khoản đã tồn tại chưa ──
+    const existingAccount = await findByCredential(identifierValue);
+    if (existingAccount) {
+      throw createError(
+        AUTH_ERRORS.AUTH_ALLREADY_EXISTS,
+        identifier === "EMAIL" ? "Email này đã được sử dụng" : "Số điện thoại này đã được sử dụng",
+      );
+    }
+
+    // ── Tạo account + user ──
     const passwordHash = await bcrypt.hash(password, 10);
     const accountId = generateAccountId();
     const userId = generateUserId();
-    const userData = { userId, accountId, identifier, passwordHash, fullname };
-    const newUser = await createUser(userData);
+
+    await createAccount({ accountId, identifier, identifiervalue: identifierValue, passwordHash });
+    await createUser(userId, accountId, fullName);
+
+    // ── Query lại để lấy đầy đủ thông tin user (cần cho việc cấp token) ──
+    const newUser = await findByCredential(identifierValue);
     return newUser;
   } catch (error) {
     throw error;

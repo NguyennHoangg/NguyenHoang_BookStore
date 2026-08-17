@@ -1,6 +1,8 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Input from "../components/inputs/input";
 import Button from "../components/button/button";
+import useAuth from "../hooks/useAuth";
 
 type Mode = "login" | "register";
 
@@ -39,6 +41,9 @@ function BookPattern() {
 }
 
 export default function LoginPage() {
+  const { login, register } = useAuth();
+  const navigate = useNavigate();
+
   {/* --- States --- */}
   const [mode, setMode] = useState<Mode>("login");
   const [loginData, setLoginData] = useState({ email: "", password: "" });
@@ -50,21 +55,82 @@ export default function LoginPage() {
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [animating, setAnimating] = useState(false);
+  const [isRateLimited, setIsRateLimited] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
 
   {/* --- Functions --- */}
   const handleLoginChange = (field: string, value: string) => {
     setLoginData((prev) => ({ ...prev, [field]: value }));
     setErrors((prev) => ({ ...prev, [field]: "" }));
+    // Khi user đổi email → reset rate limit
+    if (field === "email") setIsRateLimited(false);
   };
 
+  // For registration, we have more fields and validations, so we keep them separately
   const handleRegisterChange = (field: string, value: string) => {
     setRegisterData((prev) => ({ ...prev, [field]: value }));
     setErrors((prev) => ({ ...prev, [field]: "" }));
   };
 
+
+  // Handle form submissions
+
+  const handleLoginSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!validateLogin()) return;
+    setIsSubmitting(true);
+    const result = await login(loginData);
+    setIsSubmitting(false);
+    if (result?.success) {
+      navigate('/');
+    } else {
+      if (result?.errorCode === 'RATE_LIMIT_EXCEEDED') {
+        setIsRateLimited(true);
+      }
+      setErrors((prev) => ({ ...prev, general: result?.error || 'Đăng nhập thất bại' }));
+    }
+  };
+
+  const handleRegisterSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!validateRegister()) return;
+
+    setIsSubmitting(true);
+    const result = await register({
+      identifier: "EMAIL",
+      identifierValue: registerData.email,
+      password: registerData.password,
+      fullName: registerData.fullName,
+    });
+    setIsSubmitting(false);
+
+    if (result?.success) {
+      setSuccessMessage('Tạo tài khoản thành công! Đang chuyển hướng...');
+      setTimeout(() => navigate('/'), 1200);
+    } else {
+      // Hiển thị field-level errors từ BE nếu có (VALIDATION_ERROR details)
+      const fieldErrors: Record<string, string> = {};
+      if ((result as { details?: Array<{field: string; message: string}> })?.details) {
+        const details = (result as { details: Array<{field: string; message: string}> }).details;
+        details.forEach((d) => {
+          if (d.field) fieldErrors[d.field] = d.message;
+        });
+      }
+      setErrors((prev) => ({
+        ...prev,
+        ...fieldErrors,
+        general: Object.keys(fieldErrors).length === 0
+          ? (result?.error || 'Đăng ký thất bại')
+          : ''
+      }));
+    }
+  };
+
   const validateLogin = () => {
     const e: Record<string, string> = {};
     if (!loginData.email) e.email = "Email không được để trống";
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(loginData.email)) e.email = "Email không đúng định dạng";
     if (!loginData.password) e.password = "Mật khẩu không được để trống";
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -72,30 +138,25 @@ export default function LoginPage() {
 
   const validateRegister = () => {
     const e: Record<string, string> = {};
-    if (!registerData.fullName) e.fullName = "Họ tên không được để trống";
+    if (!registerData.fullName.trim()) e.fullName = "Họ tên không được để trống";
     if (!registerData.email) e.email = "Email không được để trống";
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(registerData.email)) e.email = "Email không đúng định dạng";
     if (!registerData.password) e.password = "Mật khẩu không được để trống";
-    if (registerData.password !== registerData.confirmPassword)
+    else if (registerData.password.length < 8) e.password = "Mật khẩu phải có ít nhất 8 ký tự";
+    else if (!/[0-9!@#$%^&*()_+\-=[\]{};':"\\|,.<>\/?]/.test(registerData.password))
+      e.password = "Mật khẩu phải chứa ít nhất 1 chữ số hoặc ký tự đặc biệt";
+    if (!registerData.confirmPassword) e.confirmPassword = "Vui lòng xác nhận mật khẩu";
+    else if (registerData.password !== registerData.confirmPassword)
       e.confirmPassword = "Mật khẩu xác nhận không khớp";
     setErrors(e);
     return Object.keys(e).length === 0;
-  };
-
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (mode === "login") {
-      if (!validateLogin()) return;
-      console.log("Login:", loginData);
-    } else {
-      if (!validateRegister()) return;
-      console.log("Register:", registerData);
-    }
   };
 
   const switchMode = (next: Mode) => {
     if (next === mode || animating) return;
     setAnimating(true);
     setErrors({});
+    setSuccessMessage('');
     setMode(next);
     setTimeout(() => setAnimating(false), 350);
   };
@@ -206,7 +267,7 @@ export default function LoginPage() {
             </div>
 
             {/* Form */}
-            <form onSubmit={handleSubmit} noValidate className="space-y-5" key={mode}>
+            <form onSubmit={mode === "login" ? handleLoginSubmit : handleRegisterSubmit} noValidate className="space-y-5" key={mode}>
               {mode === "register" && (
                 <div className="fade-up">
                   <Input
@@ -239,7 +300,7 @@ export default function LoginPage() {
                 <Input
                   label="Mật khẩu"
                   type="password"
-                  placeholder="••••••••"
+                  placeholder="********"
                   value={mode === "login" ? loginData.password : registerData.password}
                   onChange={(e) =>
                     mode === "login"
@@ -271,9 +332,34 @@ export default function LoginPage() {
                 </div>
               )}
 
+              {successMessage && (
+                <div className="fade-up-4 rounded-lg px-4 py-3 text-sm font-sans"
+                  style={{ backgroundColor: "rgba(46,125,50,0.12)", color: "#2e7d32",
+                           border: "1px solid rgba(46,125,50,0.3)" }}>
+                  ✓ {successMessage}
+                </div>
+              )}
+
+              {errors.general && (
+                <div className="fade-up-4 rounded-lg px-4 py-3 text-sm font-sans"
+                  style={{ backgroundColor: isRateLimited ? "rgba(255,152,0,0.12)" : "rgba(211,47,47,0.10)",
+                           color: isRateLimited ? "#e65100" : "#c62828",
+                           border: `1px solid ${isRateLimited ? "rgba(230,81,0,0.3)" : "rgba(198,40,40,0.25)"}` }}>
+                  {errors.general}
+                </div>
+              )}
+
               <div className="fade-up-4 pt-2">
-                <Button className="w-full py-3 text-label-lg tracking-widest">
-                  {mode === "login" ? "Đăng nhập" : "Tạo tài khoản"}
+                <Button
+                  type="submit"
+                  disabled={isRateLimited || isSubmitting}
+                  className={`w-full py-3 text-label-lg tracking-widest transition-opacity duration-200 ${
+                    (isRateLimited || isSubmitting) ? "opacity-40 cursor-not-allowed" : ""
+                  }`}
+                >
+                  {isSubmitting
+                    ? (mode === "login" ? "Đang đăng nhập..." : "Đang tạo tài khoản...")
+                    : (mode === "login" ? "Đăng nhập" : "Tạo tài khoản")}
                 </Button>
               </div>
             </form>

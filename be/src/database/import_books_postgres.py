@@ -1,9 +1,11 @@
 import json
 import psycopg2
-from psycopg2 import sql
 import os
+import random
+import time
 from datetime import datetime
 from dotenv import load_dotenv
+import requests
 
 # Load environment variables
 load_dotenv()
@@ -15,21 +17,33 @@ def get_db_config():
         'database': os.getenv('DB_NAME', 'OnlineBookStore'),
         'user': os.getenv('DB_USER', 'postgres'),
         'password': os.getenv('DB_PASSWORD', 'postgres'),
-        'port': os.getenv('DB_PORT', '5432')
+        'port': os.getenv('DB_PORT', '5432'),
+        'url': os.getenv('DB_URL') or os.getenv('DATABASE_URL'),
+        'sslmode': os.getenv('DB_SSLMODE')
     }
 
 def create_connection():
     """Tạo kết nối đến PostgreSQL sử dụng cấu hình từ .env"""
     try:
         config = get_db_config()
-        
-        conn = psycopg2.connect(
-            host=config['host'],
-            port=config['port'],
-            database=config['database'],
-            user=config['user'],
-            password=config['password']
-        )
+        # Support full DB URL (e.g. Supabase pooler) if provided
+        if config.get('url'):
+            # If sslmode provided, append to dsn if not present
+            dsn = config['url']
+            if config.get('sslmode') and 'sslmode=' not in dsn:
+                # append sslmode as query param
+                sep = '&' if '?' in dsn else '?'
+                dsn = f"{dsn}{sep}sslmode={config['sslmode']}"
+            conn = psycopg2.connect(dsn)
+        else:
+            conn = psycopg2.connect(
+                host=config['host'],
+                port=config['port'],
+                database=config['database'],
+                user=config['user'],
+                password=config['password'],
+                sslmode=config.get('sslmode') or None
+            )
         
         print("✅ Kết nối database thành công!")
         print(f"   📊 Host: {config['host']}:{config['port']}")
@@ -55,6 +69,42 @@ def load_json_data(file_path):
         print(f"❌ Lỗi đọc file JSON: {e}")
         return None
 
+
+def get_supabase_config():
+    """Đọc cấu hình Supabase từ .env (SUPABASE_URL, SUPABASE_KEY)"""
+    return {
+        'url': os.getenv('SUPABASE_URL'),
+        'key': os.getenv('SUPABASE_KEY')
+    }
+
+
+def push_book_to_supabase(payload):
+    """Gửi một bản ghi sách lên Supabase REST (upsert)."""
+    cfg = get_supabase_config()
+    if not cfg['url'] or not cfg['key']:
+        raise Exception('SUPABASE_URL or SUPABASE_KEY not configured')
+
+    endpoint = cfg['url'].rstrip('/') + '/rest/v1/books'
+    headers = {
+        'apikey': cfg['key'],
+        'Authorization': f"Bearer {cfg['key']}",
+        'Content-Type': 'application/json',
+        # Use merge-duplicates to upsert if primary key exists
+        'Prefer': 'resolution=merge-duplicates,return=representation'
+    }
+
+    # Supabase expects an array for inserts
+    resp = requests.post(endpoint, headers=headers, json=[payload], timeout=30)
+    if resp.status_code not in (200, 201, 204):
+        raise Exception(f"Supabase error {resp.status_code}: {resp.text}")
+
+    # Be gentle with rate limits
+    time.sleep(0.05)
+    try:
+        return resp.json()
+    except Exception:
+        return None
+
 def check_book_exists(cursor, book_id):
     """Kiểm tra sách đã tồn tại trong database chưa"""
     try:
@@ -72,16 +122,17 @@ def insert_book(cursor, book_data):
         title = book_data.get('name', '') or 'Chưa có tiêu đề'
         author = book_data.get('author', '') or 'Unknown'
         publisher_name = book_data.get('publisher', 'Đang cập nhật')
-        price = float(book_data.get('price', 0)) if book_data.get('price') else 0.0
+        price = max(0.0, float(book_data.get('price', 0)) if book_data.get('price') else 0.0)
         stock = 100 if book_data.get('available', False) else 0
         image_url = book_data.get('image', '') or 'default.jpg'
         description = book_data.get('summary', '') or 'Đang cập nhật'
         url = book_data.get('url', '') or f'/book/{book_id}'
-        pages = int(book_data.get('pages', 0)) if book_data.get('pages') else 100
+        pages = max(1, int(book_data.get('pages', 1)) if book_data.get('pages') else 1)  # CHECK Pages > 0
         barcode = book_data.get('barcode', '') or f'BARCODE{book_id}'
         sku = book_data.get('sku', '') or f'SKU{book_id}'
         release_year = book_data.get('release_year', None)
-        compare_at_price = float(book_data.get('compare_at_price', 0)) if book_data.get('compare_at_price') else None
+        _cap = book_data.get('compare_at_price')
+        compare_at_price = max(0.0, float(_cap)) if _cap else None  # None nếu không có hoặc 0
         weight = book_data.get('weight', '') or '0.5 kg'
         is_active = True if book_data.get('available', False) else False
         created_at = datetime.now()
@@ -96,7 +147,7 @@ def insert_book(cursor, book_data):
                 BookID, Title, Author, 
                 PublisherID, CategoryID, 
                 Price, Stock, ImageURL, Description, 
-                CreatedAt, UpdatedAt, isActive, Url, 
+                CreatedAt, UpdatedAt, IsActive, Url, 
                 Pages, Barcode, Sku, ReleaseYear, CompareAtPrice, Weight
             ) VALUES (
                 %s, %s, %s, 
@@ -116,6 +167,39 @@ def insert_book(cursor, book_data):
             pages, barcode, sku, release_year, compare_at_price, weight
         ))
         
+        # Optionally push to Supabase (controlled by env var)
+        try:
+            push = os.getenv('PUSH_TO_SUPABASE', 'false').lower() in ['1', 'true', 'yes']
+            if push:
+                # Prepare payload matching DB columns (lowercase keys)
+                payload = {
+                    'bookid': book_id,
+                    'title': title,
+                    'author': author,
+                    'price': price,
+                    'stock': stock,
+                    'imageurl': image_url,
+                    'description': description,
+                    'createdat': created_at.isoformat(),
+                    'updatedat': updated_at.isoformat(),
+                    'isactive': is_active,
+                    'url': url,
+                    'pages': pages,
+                    'barcode': barcode,
+                    'sku': sku,
+                    'releaseyear': release_year,
+                    'compareatprice': compare_at_price,
+                    'weight': weight
+                }
+                try:
+                    push_book_to_supabase(payload)
+                except Exception as e:
+                    print(f"⚠️ Không thể push lên Supabase cho sách {book_id}: {e}")
+
+        except Exception:
+            # Never fail the DB import because of Supabase push
+            pass
+
         return True
     except Exception as e:
         print(f"❌ Lỗi insert sách '{book_data.get('name', 'Unknown')}': {e}")
@@ -173,11 +257,16 @@ def import_books_to_database(json_file_path):
                     continue
                 
                 # Insert sách mới
+                # Dùng savepoint để lỗi 1 sách không ảnh hưởng cả batch
+                cursor.execute("SAVEPOINT sp_book")
                 if insert_book(cursor, book):
+                    cursor.execute("RELEASE SAVEPOINT sp_book")
                     imported_count += 1
                     if i % 50 == 0:  # Chỉ log mỗi 50 sách
                         print(f"✅ Đã import: {book_name}")
                 else:
+                    cursor.execute("ROLLBACK TO SAVEPOINT sp_book")
+                    cursor.execute("RELEASE SAVEPOINT sp_book")
                     error_count += 1
                     print(f"❌ Lỗi import: {book_name}")
                 
@@ -246,6 +335,7 @@ def import_books_to_database(json_file_path):
                         else:
                             author_names = [author_name.strip()]
                         
+                        cursor.execute("SAVEPOINT sp_author")
                         for single_author in author_names:
                             if not single_author:
                                 continue
@@ -257,10 +347,14 @@ def import_books_to_database(json_file_path):
                             if existing_author:
                                 author_id = existing_author[0]
                             else:
-                                # Tạo AuthorID mới
-                                cursor.execute("SELECT COUNT(*) FROM Author WHERE AuthorID LIKE 'AUT%'")
-                                count = cursor.fetchone()[0]
-                                author_id = f"AUT{count + 1:03d}"
+                                # Tạo AuthorID độc nhất dùng timestamp + random (tránh collision từ COUNT)
+                                while True:
+                                    ts = str(int(time.time() * 1000) % 1_000_000).zfill(6)
+                                    rnd = str(random.randint(0, 999)).zfill(3)
+                                    author_id = f"AUT{ts}{rnd}"
+                                    cursor.execute("SELECT 1 FROM Author WHERE AuthorID = %s", (author_id,))
+                                    if not cursor.fetchone():
+                                        break
                                 
                                 # Insert Author mới
                                 cursor.execute("INSERT INTO Author (AuthorID, Name) VALUES (%s, %s)", 
@@ -270,16 +364,24 @@ def import_books_to_database(json_file_path):
                             cursor.execute("SELECT 1 FROM BookAuthor WHERE BookID = %s AND AuthorID = %s", 
                                          (book_id, author_id))
                             if not cursor.fetchone():
-                                # Insert BookAuthor mapping
-                                cursor.execute("INSERT INTO BookAuthor (BookID, AuthorID, AuthorName) VALUES (%s, %s, %s)", 
-                                             (book_id, author_id, single_author))
+                                # Insert BookAuthor mapping (không còn cột AuthorName)
+                                cursor.execute("INSERT INTO BookAuthor (BookID, AuthorID) VALUES (%s, %s)", 
+                                             (book_id, author_id))
                                 author_count += 1
                         
+                        cursor.execute("RELEASE SAVEPOINT sp_author")
+
                         if i % 100 == 0:
                             print(f"📊 Đã xử lý {i}/{len(books_need_mapping)} sách...")
                             conn.commit()
                     
                     except Exception as e:
+                        # Rollback về savepoint để transaction không bị aborted
+                        try:
+                            cursor.execute("ROLLBACK TO SAVEPOINT sp_author")
+                            cursor.execute("RELEASE SAVEPOINT sp_author")
+                        except Exception:
+                            pass
                         print(f"❌ Lỗi ánh xạ author cho sách {book_id}: {e}")
                         continue
                 

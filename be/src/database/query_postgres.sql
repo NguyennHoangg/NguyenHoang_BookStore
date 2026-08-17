@@ -1,5 +1,5 @@
 -- PostgreSQL Database Script for OnlineBookStore
--- Converted from SQL Server
+-- Upgraded: constraints, indexes, shipping status, coupon limits, reviews audit
 
 -- =============================================
 -- IMPORTANT: Run this command separately first:
@@ -8,269 +8,300 @@
 -- =============================================
 
 -- Drop tables if they exist (for idempotent execution)
-DROP TABLE IF EXISTS CartDetail CASCADE;
-DROP TABLE IF EXISTS Cart CASCADE;
-DROP TABLE IF EXISTS BookAuthor CASCADE;
-DROP TABLE IF EXISTS Author CASCADE;
-DROP TABLE IF EXISTS ShippingInfo CASCADE;
-DROP TABLE IF EXISTS OrderCoupons CASCADE;
-DROP TABLE IF EXISTS OrderDetails CASCADE;
-DROP TABLE IF EXISTS Payment CASCADE;
-DROP TABLE IF EXISTS Orders CASCADE;
-DROP TABLE IF EXISTS Reviews CASCADE;
-DROP TABLE IF EXISTS BookStock CASCADE;
-DROP TABLE IF EXISTS Books CASCADE;
-DROP TABLE IF EXISTS Categories CASCADE;
-DROP TABLE IF EXISTS Publishers CASCADE;
-DROP TABLE IF EXISTS Coupons CASCADE;
-DROP TABLE IF EXISTS Users CASCADE;
-DROP TABLE IF EXISTS Accounts CASCADE;
-DROP TABLE IF EXISTS Warehouses CASCADE;
+DROP TABLE IF EXISTS cartdetail CASCADE;
+DROP TABLE IF EXISTS cart CASCADE;
+DROP TABLE IF EXISTS bookauthor CASCADE;
+DROP TABLE IF EXISTS author CASCADE;
+DROP TABLE IF EXISTS shippinginfo CASCADE;
+DROP TABLE IF EXISTS ordercoupons CASCADE;
+DROP TABLE IF EXISTS orderdetails CASCADE;
+DROP TABLE IF EXISTS payment CASCADE;
+DROP TABLE IF EXISTS orders CASCADE;
+DROP TABLE IF EXISTS reviews CASCADE;
+DROP TABLE IF EXISTS bookstock CASCADE;
+DROP TABLE IF EXISTS books CASCADE;
+DROP TABLE IF EXISTS categories CASCADE;
+DROP TABLE IF EXISTS publishers CASCADE;
+DROP TABLE IF EXISTS coupons CASCADE;
+DROP TABLE IF EXISTS users CASCADE;
+DROP TABLE IF EXISTS accounts CASCADE;
+DROP TABLE IF EXISTS warehouses CASCADE;
 
 -- =============================================
 -- Table: Accounts
 -- =============================================
-CREATE TABLE Accounts (
-    AccountID VARCHAR(10) PRIMARY KEY,
-    Email VARCHAR(100) NOT NULL UNIQUE,
-    PasswordHash VARCHAR(255) NOT NULL,
-    Role VARCHAR(10) DEFAULT 'user',
-    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UpdatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    IsActive BOOLEAN DEFAULT TRUE
+CREATE TABLE accounts (
+    accountid   VARCHAR(10)  PRIMARY KEY,
+    identifier  VARCHAR(100) NOT NULL UNIQUE,
+    identifiervalue VARCHAR(100) NOT NULL UNIQUE,
+    passwordhash VARCHAR(255) NOT NULL,
+    role        VARCHAR(10)  DEFAULT 'user'
+                             CHECK (role IN ('user', 'admin', 'curator')),
+    createdat   TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+    updatedat   TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+    isactive    BOOLEAN      DEFAULT TRUE,
+    avatar      VARCHAR(500),
+    lastloginat TIMESTAMP
 );
 
 -- =============================================
 -- Table: Users
 -- =============================================
-CREATE TABLE Users (
-    UserID VARCHAR(10) PRIMARY KEY,
-    AccountID VARCHAR(10) UNIQUE,
-    FullName VARCHAR(100) NOT NULL,
-    Phone VARCHAR(20),
-    DOB DATE,
-    Gender VARCHAR(10) CHECK (Gender IN ('Male', 'Female', 'Other')),
-    Address VARCHAR(255),
-    UpdatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (AccountID) REFERENCES Accounts(AccountID)
+CREATE TABLE users (
+    userid    VARCHAR(10)  PRIMARY KEY,
+    accountid VARCHAR(10)  UNIQUE,
+    fullname  VARCHAR(100) NOT NULL,
+    phone     VARCHAR(20),
+    dob       DATE,
+    gender    VARCHAR(10)  CHECK (gender IN ('Male', 'Female', 'Other')),
+    address   VARCHAR(255),
+    createdat TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+    updatedat TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (accountid) REFERENCES accounts(accountid) ON DELETE CASCADE
 );
 
 -- =============================================
 -- Table: Categories
 -- =============================================
-CREATE TABLE Categories (
-    CategoryID VARCHAR(10) PRIMARY KEY,
-    CategoryName VARCHAR(255) NOT NULL,
-    Description VARCHAR(500)
+CREATE TABLE categories (
+    categoryid   VARCHAR(10)  PRIMARY KEY,
+    categoryname VARCHAR(255) NOT NULL,
+    description  VARCHAR(500),
+    slug         VARCHAR(100) UNIQUE
 );
 
 -- =============================================
 -- Table: Publishers
 -- =============================================
-CREATE TABLE Publishers (
-    PublisherID VARCHAR(10) PRIMARY KEY,
-    PublisherName VARCHAR(255) NOT NULL,
-    Address VARCHAR(500)
+CREATE TABLE publishers (
+    publisherid   VARCHAR(10)  PRIMARY KEY,
+    publishername VARCHAR(255) NOT NULL,
+    address       VARCHAR(500)
 );
 
 -- =============================================
 -- Table: Books
 -- =============================================
-CREATE TABLE Books (
-    BookID VARCHAR(20) PRIMARY KEY,
-    Title VARCHAR(255) NOT NULL,
-    Author VARCHAR(255) NOT NULL,
-    PublisherID VARCHAR(10),
-    CategoryID VARCHAR(10),
-    Price DECIMAL(10, 2) NOT NULL,
-    Stock INTEGER NOT NULL,
-    ImageURL VARCHAR(500),
-    Description TEXT,
-    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UpdatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    Url VARCHAR(255) NOT NULL,
-    Pages INTEGER NOT NULL,
-    Barcode VARCHAR(30) NOT NULL,
-    Sku VARCHAR(30) NOT NULL,
-    isActive BOOLEAN DEFAULT TRUE,
-    ReleaseYear INTEGER,
-    CompareAtPrice DECIMAL(10, 2),
-    Weight VARCHAR(50),
-    FOREIGN KEY (CategoryID) REFERENCES Categories(CategoryID),
-    FOREIGN KEY (PublisherID) REFERENCES Publishers(PublisherID)
+CREATE TABLE books (
+    bookid         VARCHAR(20)    PRIMARY KEY,
+    title          VARCHAR(255)   NOT NULL,
+    author         VARCHAR(255)   NOT NULL,  -- source column used by trigger → BookAuthor
+    publisherid    VARCHAR(10),
+    categoryid     VARCHAR(10),
+    price          DECIMAL(10, 2) NOT NULL CHECK (price >= 0),
+    stock          INTEGER        NOT NULL   DEFAULT 0 CHECK (stock >= 0),
+    imageurl       VARCHAR(500),
+    description    TEXT,
+    createdat      TIMESTAMP      DEFAULT CURRENT_TIMESTAMP,
+    updatedat      TIMESTAMP      DEFAULT CURRENT_TIMESTAMP,
+    url            VARCHAR(255)   NOT NULL,
+    pages          INTEGER        NOT NULL   CHECK (pages > 0),
+    barcode        VARCHAR(30)    NOT NULL,
+    sku            VARCHAR(30)    NOT NULL   UNIQUE,
+    isactive       BOOLEAN        DEFAULT TRUE,
+    releaseyear    INTEGER        CHECK (releaseyear >= 1000 AND releaseyear <= EXTRACT(YEAR FROM CURRENT_DATE) + 1),
+    compareatprice DECIMAL(10, 2) CHECK (compareatprice >= 0),
+    weight         VARCHAR(50),
+    soldcount      INTEGER        NOT NULL DEFAULT 0 CHECK (soldcount >= 0),
+    rating         DECIMAL(3, 2)  NOT NULL DEFAULT 0 CHECK (rating >= 0 AND rating <= 5),
+    discount       DECIMAL(5, 2)  NOT NULL DEFAULT 0 CHECK (discount >= 0 AND discount <= 100),
+    FOREIGN KEY (categoryid)  REFERENCES categories(categoryid)  ON DELETE SET NULL,
+    FOREIGN KEY (publisherid) REFERENCES publishers(publisherid) ON DELETE SET NULL
 );
 
 -- =============================================
 -- Table: Warehouses
 -- =============================================
-CREATE TABLE Warehouses (
-    WarehouseID VARCHAR(10) PRIMARY KEY,
-    Name VARCHAR(100) NOT NULL,
-    Location VARCHAR(255) NOT NULL
+CREATE TABLE warehouses (
+    warehouseid VARCHAR(10)  PRIMARY KEY,
+    name        VARCHAR(100) NOT NULL,
+    location    VARCHAR(255) NOT NULL
 );
 
 -- =============================================
 -- Table: BookStock
 -- =============================================
-CREATE TABLE BookStock (
-    BookID VARCHAR(20),
-    WarehouseID VARCHAR(10),
-    Quantity INTEGER NOT NULL,
-    PRIMARY KEY (BookID, WarehouseID),
-    FOREIGN KEY (BookID) REFERENCES Books(BookID),
-    FOREIGN KEY (WarehouseID) REFERENCES Warehouses(WarehouseID)
+CREATE TABLE bookstock (
+    bookid      VARCHAR(20) NOT NULL,
+    warehouseid VARCHAR(10) NOT NULL,
+    quantity    INTEGER     NOT NULL DEFAULT 0 CHECK (quantity >= 0),
+    updatedat   TIMESTAMP   DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (bookid, warehouseid),
+    FOREIGN KEY (bookid)      REFERENCES books(bookid)      ON DELETE CASCADE,
+    FOREIGN KEY (warehouseid) REFERENCES warehouses(warehouseid) ON DELETE CASCADE
 );
 
 -- =============================================
 -- Table: Coupons
 -- =============================================
-CREATE TABLE Coupons (
-    CouponID VARCHAR(10) PRIMARY KEY,
-    Code VARCHAR(20) NOT NULL UNIQUE,
-    Description VARCHAR(255),
-    DiscountPercent INTEGER CHECK (DiscountPercent >= 1 AND DiscountPercent <= 100),
-    StartDate TIMESTAMP NOT NULL,
-    EndDate TIMESTAMP NOT NULL,
-    IsActive BOOLEAN DEFAULT TRUE
+CREATE TABLE coupons (
+    couponid        VARCHAR(10)   PRIMARY KEY,
+    code            VARCHAR(20)   NOT NULL UNIQUE,
+    description     VARCHAR(255),
+    discountpercent DECIMAL(5, 2) CHECK (discountpercent >= 0.01 AND discountpercent <= 100),
+    maxusage        INTEGER       CHECK (maxusage > 0),       -- NULL = unlimited
+    usedcount       INTEGER       NOT NULL DEFAULT 0 CHECK (usedcount >= 0),
+    startdate       TIMESTAMP     NOT NULL,
+    enddate         TIMESTAMP     NOT NULL,
+    isactive        BOOLEAN       DEFAULT TRUE,
+    minorderamount  DECIMAL(10,2) NOT NULL DEFAULT 0 CHECK (minorderamount >= 0),
+    CONSTRAINT chk_coupon_dates CHECK (enddate > startdate)
 );
 
 -- =============================================
 -- Table: Orders
 -- =============================================
-CREATE TABLE Orders (
-    OrderID VARCHAR(10) PRIMARY KEY,
-    AccountID VARCHAR(10),
-    OrderDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    Status VARCHAR(50) DEFAULT 'Pending',
-    Total DECIMAL(10, 2) NOT NULL,
-    UpdatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (AccountID) REFERENCES Accounts(AccountID)
+CREATE TABLE orders (
+    orderid      VARCHAR(10)    PRIMARY KEY,
+    accountid    VARCHAR(10),
+    orderdate    TIMESTAMP      DEFAULT CURRENT_TIMESTAMP,
+    status       VARCHAR(20)    DEFAULT 'Pending'
+                                CHECK (status IN ('Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled', 'Refunded')),
+    total        DECIMAL(10, 2) NOT NULL CHECK (total >= 0),
+    shippingfee  DECIMAL(10, 2) NOT NULL DEFAULT 0 CHECK (shippingfee >= 0),
+    notes        TEXT,
+    updatedat    TIMESTAMP      DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (accountid) REFERENCES accounts(accountid) ON DELETE SET NULL
 );
 
 -- =============================================
--- Table: Payment (NEW)
+-- Table: Payment
 -- =============================================
-CREATE TABLE Payment (
-    PaymentID VARCHAR(10) PRIMARY KEY,
-    OrderID VARCHAR(10) UNIQUE,
-    PaymentMethod VARCHAR(50) NOT NULL, -- 'Credit Card', 'Debit Card', 'Cash', 'Bank Transfer', 'E-Wallet'
-    PaymentStatus VARCHAR(20) DEFAULT 'Pending', -- 'Pending', 'Completed', 'Failed', 'Refunded'
-    Amount DECIMAL(10, 2) NOT NULL,
-    TransactionID VARCHAR(100),
-    PaymentDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UpdatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    Notes TEXT,
-    FOREIGN KEY (OrderID) REFERENCES Orders(OrderID)
+CREATE TABLE payment (
+    paymentid     VARCHAR(10)    PRIMARY KEY,
+    orderid       VARCHAR(10)    UNIQUE,
+    paymentmethod VARCHAR(50)    NOT NULL
+                                 CHECK (paymentmethod IN ('Credit Card', 'Debit Card', 'Cash', 'Bank Transfer', 'E-Wallet')),
+    paymentstatus VARCHAR(20)    DEFAULT 'Pending'
+                                 CHECK (paymentstatus IN ('Pending', 'Completed', 'Failed', 'Refunded')),
+    amount        DECIMAL(10, 2) NOT NULL CHECK (amount >= 0),
+    transactionid VARCHAR(100),
+    paymentdate   TIMESTAMP      DEFAULT CURRENT_TIMESTAMP,
+    createdat     TIMESTAMP      DEFAULT CURRENT_TIMESTAMP,
+    updatedat     TIMESTAMP      DEFAULT CURRENT_TIMESTAMP,
+    notes         TEXT,
+    FOREIGN KEY (orderid) REFERENCES orders(orderid) ON DELETE CASCADE
 );
 
 -- =============================================
 -- Table: OrderDetails
 -- =============================================
-CREATE TABLE OrderDetails (
-    OrderDetailID VARCHAR(10) PRIMARY KEY,
-    OrderID VARCHAR(10),
-    BookID VARCHAR(20),
-    Quantity INTEGER NOT NULL,
-    UnitPrice DECIMAL(10, 2) NOT NULL,
-    FOREIGN KEY (OrderID) REFERENCES Orders(OrderID),
-    FOREIGN KEY (BookID) REFERENCES Books(BookID)
+CREATE TABLE orderdetails (
+    orderdetailid VARCHAR(10)    PRIMARY KEY,
+    orderid       VARCHAR(10),
+    bookid        VARCHAR(20),
+    quantity      INTEGER        NOT NULL CHECK (quantity >= 1),
+    unitprice     DECIMAL(10, 2) NOT NULL CHECK (unitprice >= 0),
+    discount      DECIMAL(5, 2)  NOT NULL DEFAULT 0 CHECK (discount >= 0 AND discount <= 100),
+    FOREIGN KEY (orderid) REFERENCES orders(orderid)  ON DELETE CASCADE,
+    FOREIGN KEY (bookid)  REFERENCES books(bookid)    ON DELETE SET NULL
 );
 
 -- =============================================
 -- Table: OrderCoupons
 -- =============================================
-CREATE TABLE OrderCoupons (
-    OrderCouponID VARCHAR(10) PRIMARY KEY,
-    OrderID VARCHAR(10),
-    CouponID VARCHAR(10),
-    FOREIGN KEY (OrderID) REFERENCES Orders(OrderID),
-    FOREIGN KEY (CouponID) REFERENCES Coupons(CouponID)
+CREATE TABLE ordercoupons (
+    ordercouponid VARCHAR(10) PRIMARY KEY,
+    orderid       VARCHAR(10),
+    couponid      VARCHAR(10),
+    FOREIGN KEY (orderid)   REFERENCES orders(orderid)   ON DELETE CASCADE,
+    FOREIGN KEY (couponid)  REFERENCES coupons(couponid) ON DELETE SET NULL,
+    UNIQUE (orderid, couponid)
 );
 
 -- =============================================
 -- Table: Reviews
 -- =============================================
-CREATE TABLE Reviews (
-    ReviewID VARCHAR(10) PRIMARY KEY,
-    AccountID VARCHAR(10),
-    BookID VARCHAR(20),
-    Rating INTEGER CHECK (Rating >= 1 AND Rating <= 5),
-    Comment TEXT,
-    ReviewDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (AccountID) REFERENCES Accounts(AccountID),
-    FOREIGN KEY (BookID) REFERENCES Books(BookID)
+CREATE TABLE reviews (
+    reviewid   VARCHAR(10) PRIMARY KEY,
+    accountid  VARCHAR(10),
+    bookid     VARCHAR(20),
+    rating     INTEGER     CHECK (rating >= 1 AND rating <= 5),
+    title      VARCHAR(255),
+    comment    TEXT,
+    isedited   BOOLEAN     DEFAULT FALSE,
+    reviewdate TIMESTAMP   DEFAULT CURRENT_TIMESTAMP,
+    updatedat  TIMESTAMP   DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (accountid) REFERENCES accounts(accountid) ON DELETE SET NULL,
+    FOREIGN KEY (bookid)    REFERENCES books(bookid)        ON DELETE CASCADE,
+    UNIQUE (accountid, bookid)  -- một user chỉ review một sách một lần
 );
 
 -- =============================================
 -- Table: ShippingInfo
 -- =============================================
-CREATE TABLE ShippingInfo (
-    ShippingID VARCHAR(10) PRIMARY KEY,
-    OrderID VARCHAR(10) UNIQUE,
-    FullName VARCHAR(100) NOT NULL,
-    Phone VARCHAR(20) NOT NULL,
-    AddressLine VARCHAR(255) NOT NULL,
-    City VARCHAR(100) NOT NULL,
-    PostalCode VARCHAR(20),
-    Country VARCHAR(100) DEFAULT 'Vietnam',
-    ShippingDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (OrderID) REFERENCES Orders(OrderID)
+CREATE TABLE shippinginfo (
+    shippingid        VARCHAR(10) PRIMARY KEY,
+    orderid           VARCHAR(10) UNIQUE,
+    fullname          VARCHAR(100) NOT NULL,
+    phone             VARCHAR(20)  NOT NULL,
+    addressline       VARCHAR(255) NOT NULL,
+    city              VARCHAR(100) NOT NULL,
+    postalcode        VARCHAR(20),
+    country           VARCHAR(100) DEFAULT 'Vietnam',
+    status            VARCHAR(20)  DEFAULT 'Preparing'
+                                   CHECK (status IN ('Preparing', 'In Transit', 'Delivered', 'Failed', 'Returned')),
+    shippingdate      TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+    estimateddelivery DATE,
+    deliveredat       TIMESTAMP,
+    trackingnumber    VARCHAR(100),
+    carrier           VARCHAR(100),
+    updatedat         TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (orderid) REFERENCES orders(orderid) ON DELETE CASCADE
 );
 
 -- =============================================
--- Table: Author
+-- Table: author
 -- =============================================
-CREATE TABLE Author (
-    AuthorID VARCHAR(10) PRIMARY KEY,
-    Name VARCHAR(255) NOT NULL UNIQUE,
-    Bio VARCHAR(255),
-    Country VARCHAR(255)
+CREATE TABLE author (
+    authorid VARCHAR(15)  PRIMARY KEY,
+    name     VARCHAR(255) NOT NULL UNIQUE,
+    bio      TEXT,
+    country  VARCHAR(255)
 );
 
 -- =============================================
--- Table: BookAuthor
+-- Table: BookAuthor (AuthorName removed — JOIN author.name instead)
 -- =============================================
-CREATE TABLE BookAuthor (
-    BookID VARCHAR(20),
-    AuthorID VARCHAR(10),
-    AuthorName VARCHAR(255) NOT NULL,
-    PRIMARY KEY (BookID, AuthorID),
-    FOREIGN KEY (BookID) REFERENCES Books(BookID),
-    FOREIGN KEY (AuthorID) REFERENCES Author(AuthorID)
+CREATE TABLE bookauthor (
+    bookid    VARCHAR(20) NOT NULL,
+    authorid  VARCHAR(15) NOT NULL,
+    PRIMARY KEY (bookid, authorid),
+    FOREIGN KEY (bookid)   REFERENCES books(bookid)   ON DELETE CASCADE,
+    FOREIGN KEY (authorid) REFERENCES author(authorid) ON DELETE CASCADE
 );
 
 -- =============================================
 -- Table: Cart
 -- =============================================
-CREATE TABLE Cart (
-    CartID VARCHAR(10) PRIMARY KEY,
-    AccountID VARCHAR(10) NOT NULL UNIQUE,
-    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UpdatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (AccountID) REFERENCES Accounts(AccountID)
+CREATE TABLE cart (
+    cartid    VARCHAR(10) PRIMARY KEY,
+    accountid VARCHAR(10) NOT NULL UNIQUE,
+    createdat TIMESTAMP   DEFAULT CURRENT_TIMESTAMP,
+    updatedat TIMESTAMP   DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (accountid) REFERENCES accounts(accountid) ON DELETE CASCADE
 );
 
 -- =============================================
 -- Table: CartDetail
 -- =============================================
-CREATE TABLE CartDetail (
-    CartDetailID VARCHAR(10) PRIMARY KEY,
-    CartID VARCHAR(10) NOT NULL,
-    BookID VARCHAR(20) NOT NULL,
-    Quantity INTEGER NOT NULL CHECK (Quantity >= 1),
-    UnitPrice DECIMAL(10, 2),
-    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UpdatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (CartID) REFERENCES Cart(CartID),
-    FOREIGN KEY (BookID) REFERENCES Books(BookID),
-    UNIQUE (CartID, BookID)
+CREATE TABLE cartdetail (
+    cartdetailid VARCHAR(10)    PRIMARY KEY,
+    cartid       VARCHAR(10)    NOT NULL,
+    bookid       VARCHAR(20)    NOT NULL,
+    quantity     INTEGER        NOT NULL CHECK (quantity >= 1),
+    unitprice    DECIMAL(10, 2) NOT NULL CHECK (unitprice >= 0),
+    createdat    TIMESTAMP      DEFAULT CURRENT_TIMESTAMP,
+    updatedat    TIMESTAMP      DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (cartid)  REFERENCES cart(cartid)   ON DELETE CASCADE,
+    FOREIGN KEY (bookid)  REFERENCES books(bookid)  ON DELETE CASCADE,
+    UNIQUE (cartid, bookid)
 );
 
 -- =============================================
 -- Insert Data: Categories
 -- =============================================
-INSERT INTO Categories (CategoryID, CategoryName, Description) VALUES
+INSERT INTO categories (categoryid, categoryname, description) VALUES
 ('CAT001', 'Phát triển bản thân', NULL),
 ('CAT002', 'Văn học nước ngoài', NULL),
 ('CAT003', 'Văn học Việt Nam', NULL),
@@ -295,7 +326,7 @@ INSERT INTO Categories (CategoryID, CategoryName, Description) VALUES
 -- =============================================
 -- Insert Data: Publishers
 -- =============================================
-INSERT INTO Publishers (PublisherID, PublisherName, Address) VALUES
+INSERT INTO publishers (publisherid, publishername, address) VALUES
 ('PUB001', 'Dân Trí', 'Hà Nội'),
 ('PUB002', 'Văn Học', 'TP.HCM'),
 ('PUB003', 'Hội Nhà Văn', 'Hà Nội'),
@@ -321,15 +352,15 @@ INSERT INTO Publishers (PublisherID, PublisherName, Address) VALUES
 -- Functions for Publisher and Category Mapping
 -- =============================================
 
--- Function to get PublisherID from publisher name
-CREATE OR  FUNCTION GetPublisherID(publisher_name VARCHAR)
+-- Function to get publisherid from publisher name
+CREATE OR REPLACE FUNCTION GetPublisherID(publisher_name VARCHAR)
 RETURNS VARCHAR AS $$
 DECLARE
     publisher_id VARCHAR(10);
 BEGIN
-    SELECT PublisherID INTO publisher_id
-    FROM Publishers
-    WHERE LOWER(TRIM(PublisherName)) = LOWER(TRIM(publisher_name));
+    SELECT publisherid INTO publisher_id
+    FROM publishers
+    WHERE LOWER(TRIM(publishername)) = LOWER(TRIM(publisher_name));
     
     IF publisher_id IS NULL THEN
         publisher_id := 'PUB011';
@@ -339,7 +370,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Function to get default CategoryID
+-- Function to get default categoryid
 CREATE OR REPLACE FUNCTION GetDefaultCategoryID(
     title VARCHAR,
     author VARCHAR,
@@ -407,12 +438,12 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- =============================================
--- Function: Get or Create AuthorID
+-- Function: Get or Create authorid
 -- =============================================
 CREATE OR REPLACE FUNCTION GetOrCreateAuthorID(author_name VARCHAR)
 RETURNS VARCHAR AS $$
 DECLARE
-    author_id VARCHAR(10);
+    author_id VARCHAR(15);
     clean_author_name VARCHAR(255);
     timestamp_val VARCHAR(6);
     random_val VARCHAR(3);
@@ -420,9 +451,9 @@ BEGIN
     clean_author_name := TRIM(author_name);
     
     -- Check if author exists
-    SELECT AuthorID INTO author_id
-    FROM Author
-    WHERE Name = clean_author_name;
+    SELECT authorid INTO author_id
+    FROM author
+    WHERE name = clean_author_name;
     
     -- Create new author if not exists
     IF author_id IS NULL THEN
@@ -430,13 +461,13 @@ BEGIN
         random_val := LPAD(CAST(FLOOR(RANDOM() * 1000)::INTEGER AS VARCHAR), 3, '0');
         author_id := 'AUT' || timestamp_val || random_val;
         
-        -- Ensure unique AuthorID
-        WHILE EXISTS (SELECT 1 FROM Author WHERE AuthorID = author_id) LOOP
+        -- Ensure unique authorid
+        WHILE EXISTS (SELECT 1 FROM author WHERE authorid = author_id) LOOP
             random_val := LPAD(CAST(FLOOR(RANDOM() * 1000)::INTEGER AS VARCHAR), 3, '0');
             author_id := 'AUT' || timestamp_val || random_val;
         END LOOP;
         
-        INSERT INTO Author (AuthorID, Name)
+        INSERT INTO author (authorid, name)
         VALUES (author_id, clean_author_name);
     END IF;
     
@@ -445,7 +476,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- =============================================
--- Trigger Functions for Author Mapping
+-- Trigger Functions for author Mapping
 -- =============================================
 
 -- Trigger function for INSERT on Books
@@ -456,26 +487,26 @@ DECLARE
     single_author TEXT;
     author_id VARCHAR(10);
 BEGIN
-    IF NEW.Author IS NOT NULL AND TRIM(NEW.Author) <> '' THEN
+    IF NEW.author IS NOT NULL AND TRIM(NEW.author) <> '' THEN
         -- Split authors by comma
-        author_list := string_to_array(NEW.Author, ',');
+        author_list := string_to_array(NEW.author, ',');
         
         -- If no comma, try splitting by &
         IF array_length(author_list, 1) = 1 THEN
-            author_list := string_to_array(NEW.Author, '&');
+            author_list := string_to_array(NEW.author, '&');
         END IF;
         
         -- Process each author
         FOREACH single_author IN ARRAY author_list LOOP
             single_author := TRIM(single_author);
             IF single_author <> '' THEN
-                -- Get or create AuthorID
+                -- Get or create authorid
                 author_id := GetOrCreateAuthorID(single_author);
                 
-                -- Insert into BookAuthor if not exists
-                INSERT INTO BookAuthor (BookID, AuthorID, AuthorName)
-                VALUES (NEW.BookID, author_id, single_author)
-                ON CONFLICT (BookID, AuthorID) DO NOTHING;
+                -- INSERT INTO bookauthor if not exists
+                INSERT INTO bookauthor (bookid, authorid)
+                VALUES (NEW.bookid, author_id)
+                ON CONFLICT (bookid, authorid) DO NOTHING;
             END IF;
         END LOOP;
     END IF;
@@ -490,20 +521,20 @@ RETURNS TRIGGER AS $$
 DECLARE
     author_list TEXT[];
     single_author TEXT;
-    author_id VARCHAR(10);
+    author_id VARCHAR(15);
 BEGIN
-    -- Only process if Author column is changed
-    IF NEW.Author IS DISTINCT FROM OLD.Author THEN
+    -- Only process if author column is changed
+    IF NEW.author IS DISTINCT FROM OLD.author THEN
         -- Delete old mappings
-        DELETE FROM BookAuthor WHERE BookID = NEW.BookID;
+        DELETE FROM bookauthor WHERE bookid = NEW.bookid;
         
-        IF NEW.Author IS NOT NULL AND TRIM(NEW.Author) <> '' THEN
+        IF NEW.author IS NOT NULL AND TRIM(NEW.author) <> '' THEN
             -- Split authors by comma
-            author_list := string_to_array(NEW.Author, ',');
+            author_list := string_to_array(NEW.author, ',');
             
             -- If no comma, try splitting by &
             IF array_length(author_list, 1) = 1 THEN
-                author_list := string_to_array(NEW.Author, '&');
+                author_list := string_to_array(NEW.author, '&');
             END IF;
             
             -- Process each author
@@ -512,9 +543,9 @@ BEGIN
                 IF single_author <> '' THEN
                     author_id := GetOrCreateAuthorID(single_author);
                     
-                    INSERT INTO BookAuthor (BookID, AuthorID, AuthorName)
-                    VALUES (NEW.BookID, author_id, single_author)
-                    ON CONFLICT (BookID, AuthorID) DO NOTHING;
+                    INSERT INTO bookauthor (bookid, authorid)
+                    VALUES (NEW.bookid, author_id)
+                    ON CONFLICT (bookid, authorid) DO NOTHING;
                 END IF;
             END LOOP;
         END IF;
@@ -538,18 +569,18 @@ CREATE TRIGGER tr_books_auto_map_author_update
     EXECUTE FUNCTION trigger_books_auto_map_author_update();
 
 -- =============================================
--- Triggers for UpdatedAt columns
+-- Triggers for updatedat columns
 -- =============================================
 
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
-    NEW.UpdatedAt = CURRENT_TIMESTAMP;
+    NEW.updatedat = CURRENT_TIMESTAMP;
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
--- Apply UpdatedAt trigger to relevant tables
+-- Apply updatedat trigger to relevant tables
 CREATE TRIGGER update_accounts_updated_at BEFORE UPDATE ON Accounts
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
@@ -571,24 +602,73 @@ CREATE TRIGGER update_cartdetail_updated_at BEFORE UPDATE ON CartDetail
 CREATE TRIGGER update_payment_updated_at BEFORE UPDATE ON Payment
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+CREATE TRIGGER update_shippinginfo_updated_at BEFORE UPDATE ON ShippingInfo
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE OR REPLACE FUNCTION update_reviews_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updatedat = CURRENT_TIMESTAMP;
+    NEW.isedited  = TRUE;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER update_reviews_updated_at BEFORE UPDATE ON Reviews
+    FOR EACH ROW EXECUTE FUNCTION update_reviews_updated_at_column();
+
 -- =============================================
 -- Create Indexes for Performance
 -- =============================================
+-- Drop old indexes cleanly
+DROP INDEX IF EXISTS idx_books_author;
 
-CREATE INDEX idx_books_category ON Books(CategoryID);
-CREATE INDEX idx_books_publisher ON Books(PublisherID);
-CREATE INDEX idx_books_author ON Books(Author);
-CREATE INDEX idx_books_isactive ON Books(isActive);
-CREATE INDEX idx_orders_account ON Orders(AccountID);
-CREATE INDEX idx_orders_status ON Orders(Status);
-CREATE INDEX idx_orderdetails_order ON OrderDetails(OrderID);
-CREATE INDEX idx_orderdetails_book ON OrderDetails(BookID);
-CREATE INDEX idx_reviews_book ON Reviews(BookID);
-CREATE INDEX idx_reviews_account ON Reviews(AccountID);
-CREATE INDEX idx_cart_account ON Cart(AccountID);
-CREATE INDEX idx_cartdetail_cart ON CartDetail(CartID);
-CREATE INDEX idx_payment_order ON Payment(OrderID);
-CREATE INDEX idx_payment_status ON Payment(PaymentStatus);
+-- Books
+CREATE INDEX idx_books_category   ON Books(categoryid);
+CREATE INDEX idx_books_publisher  ON Books(publisherid);
+CREATE INDEX idx_books_author     ON Books(author);
+CREATE INDEX idx_books_isactive   ON Books(isactive);
+CREATE INDEX idx_books_price      ON Books(price);
+CREATE INDEX idx_books_sku        ON Books(sku);
+
+-- Orders
+CREATE INDEX idx_orders_account   ON Orders(accountid);
+CREATE INDEX idx_orders_status    ON Orders(status);
+CREATE INDEX idx_orders_date      ON Orders(orderdate DESC);
+
+-- OrderDetails
+CREATE INDEX idx_orderdetails_order ON OrderDetails(orderid);
+CREATE INDEX idx_orderdetails_book  ON OrderDetails(bookid);
+
+-- Reviews
+CREATE INDEX idx_reviews_book     ON Reviews(bookid);
+CREATE INDEX idx_reviews_account  ON Reviews(accountid);
+CREATE INDEX idx_reviews_rating   ON Reviews(rating);
+
+-- Cart
+CREATE INDEX idx_cart_account     ON Cart(accountid);
+CREATE INDEX idx_cartdetail_cart  ON CartDetail(cartid);
+CREATE INDEX idx_cartdetail_book  ON CartDetail(bookid);
+
+-- Payment
+CREATE INDEX idx_payment_order    ON Payment(orderid);
+CREATE INDEX idx_payment_status   ON Payment(paymentstatus);
+
+-- Coupons
+CREATE INDEX idx_coupons_code     ON Coupons(code);
+CREATE INDEX idx_coupons_active   ON Coupons(isactive);
+
+-- ShippingInfo
+CREATE INDEX idx_shipping_order   ON ShippingInfo(orderid);
+CREATE INDEX idx_shipping_status  ON ShippingInfo(status);
+
+-- BookAuthor
+CREATE INDEX idx_bookauthor_book   ON BookAuthor(bookid);
+CREATE INDEX idx_bookauthor_author ON BookAuthor(authorid);
+
+-- Accounts
+CREATE INDEX idx_accounts_identifier ON Accounts(identifier);
+CREATE INDEX idx_accounts_role       ON Accounts(role);
 
 -- =============================================
 -- End of Script
