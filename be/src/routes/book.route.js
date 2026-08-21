@@ -1,6 +1,6 @@
 const express = require('express');
 const router  = express.Router();
-const { getBooksController, getBookByURLController, getFavoriteBooksController, getTopSellingBooksController, getNewBooksController } = require('../controllers/book.controller');
+const { getBooksController, getBookByURLController, getBookFavoritesController, getTopSellingBooksController, getNewBooksController } = require('../controllers/book.controller');
 
 const RESERVED_BOOK_SLUGS = new Set(['favorites']);
 
@@ -8,7 +8,7 @@ const RESERVED_BOOK_SLUGS = new Set(['favorites']);
 router.get('/', getBooksController);
 
 // GET /api/books/favorites
-router.get('/favorites', getFavoriteBooksController);
+router.get('/favorites', getBookFavoritesController);
 
 // GET /api/books/top-selling?limit=4
 router.get('/top-selling', getTopSellingBooksController);

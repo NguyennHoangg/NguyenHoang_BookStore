@@ -59,8 +59,8 @@ export default function BookCard({ book, className, onClick, featured = false }:
 
       <div className="flex flex-1 flex-col p-5">
         <div className="space-y-3">
-          {/* Chiều cao cố định = 3 dòng font-serif text-2xl leading-tight */}
-          <h3 className="line-clamp-2 h-[4rem] font-serif text-2xl leading-tight text-on-surface transition-colors group-hover:text-primary">
+          {/* Chiều cao cố định = 2 dòng, responsive theo font-size */}
+          <h3 className="line-clamp-2 h-[3rem] sm:h-[3.5rem] md:h-[4rem] font-serif text-lg sm:text-xl md:text-2xl leading-tight text-on-surface transition-colors group-hover:text-primary">
             {book.title}
           </h3>
           {/* Chiều cao cố định = 2 dòng text-sm leading-relaxed */}

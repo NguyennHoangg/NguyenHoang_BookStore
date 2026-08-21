@@ -216,7 +216,7 @@ module.exports = {
   getBooksService,
   getBookByURLService,
   getBookFavoritesService,  
-  getFavoriteBooksService: getBookFavoritesService, // alias để controller không cần sửa
+  getBookFavoritesService,
   getTopSellingBooksService,
   createBookService,
   getNewBooksService,
