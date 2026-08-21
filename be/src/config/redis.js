@@ -14,15 +14,12 @@ const createClient = redis.createClient({
       ? process.env.REDIS_URL_DEV
       : process.env.REDIS_URL_PROD,
   socket: {
-    reconnectStrategy: (retries) => {
-      if (retries >= 10) {
-        console.error("Redis reconnect failed");
-        throw new Error("Redis max retries reached");
-      }
-      const delay = Math.min(retries * 300, 3000);
-      return delay;
+    reconnectStrategy: () => {
+      return 60000;
     },
+    //thời gian chờ kết nối redis (mặc định 10s)
     connectTimeout: 10000,
+    //thời gian chờ gửi lệnh sau khi kết nối (mặc định 10s)
     keepAlive: 30000,
   },
 });
@@ -68,9 +65,10 @@ const init = async () => {
     isConnected = true;
     return client;
   } catch (error) {
-    console.error("redis connect failed", error);
+    console.error("[Redis] Kết nối thất bại, app vẫn chạy không có Redis:", error.message);
     isConnected = false;
-    throw error;
+    // Không throw — để app tiếp tục chạy bình thường mà không có Redis
+    return client;
   }
 };
 
@@ -80,6 +78,9 @@ const getRedis = () => {
   return client; 
 };
 
+const getRedisStatus = () =>{
+  return isConnected;
+}
 //function close redis
 const closeRedis = async () => {
   if (client) {
@@ -90,4 +91,4 @@ const closeRedis = async () => {
   }
 };
 
-module.exports = { init, getRedis,isConnected };
+module.exports = { init, getRedis,isConnected,closeRedis, getRedisStatus };

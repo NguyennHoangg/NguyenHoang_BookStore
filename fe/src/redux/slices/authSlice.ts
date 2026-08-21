@@ -1,12 +1,15 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 
-interface User {
-  id: string;
-  name: string;
+export interface User {
+  id: string | number;
   email: string;
-  fullName: string;
-  dob: Date;
-  gender: boolean;
+  fullName?: string;
+  role?: string;
+  dob?: Date | string;
+  gender?: boolean;
+  phone?: string;
+  address?: string;
+
 }
 
 interface AuthState {
@@ -16,11 +19,13 @@ interface AuthState {
   isAuthenticated: boolean;
 }
 
+const savedUser = localStorage.getItem('user');
+
 const initialState: AuthState = {
-  user: null,
+  user: savedUser ? JSON.parse(savedUser) : null,
   isLoading: false,
   error: null,
-  isAuthenticated: false,
+  isAuthenticated: !!savedUser,
 };
 
 const authSlice = createSlice({

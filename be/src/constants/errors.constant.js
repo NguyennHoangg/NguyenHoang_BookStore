@@ -14,6 +14,11 @@ const AUTH_ERRORS = {
     statusCode: httpStatus.UNAUTHORIZED,
     errorCode: 'AUTH_CREDENTIALS_INVALID'
   },
+  AUTH_ALLREADY_EXISTS: {
+    message: 'Tài khoản đã tồn tại',
+    statusCode: httpStatus.CONFLICT,
+    errorCode: 'AUTH_ALLREADY_EXISTS'
+  },
   AUTH_ACCOUNT_LOCKED: {
     message: 'Tài khoản bị khóa',
     statusCode: httpStatus.UNAUTHORIZED,

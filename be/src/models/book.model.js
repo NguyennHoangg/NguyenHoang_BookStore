@@ -1,5 +1,6 @@
 const { query } = require("../config/database.config");
 const { generateBookId } = require("../utils/generateId");
+const logger = require("../utils/logger");
 
 /**
  * MAP_CURSOR định nghĩa các kiểu sắp xếp hợp lệ.
@@ -179,8 +180,8 @@ const getBookByURL = async(url) => {
         const result = await query(sql, [normalizedUrl]);
         return result.rows[0] || null;
     } catch (error) {
-        console.error('Error fetching book by URL:', error);
-        return null;
+        logger.error("Error fetching book by URL:", error);
+        throw error;
     }
 }
 
@@ -203,10 +204,10 @@ const getBookFavorites = async () => {
         LIMIT 1
          `;
         const result = await query(sql);
-        return result.rows;
+        return result.rows || [];
     }catch(error){
-        
-        return [];
+        logger.error("Error fetching book favorites:", error);
+        throw error;
     }
 }
 
@@ -230,9 +231,10 @@ const getTopSellingBooks = async (limit = 4) => {
         LIMIT $1`;
 
         const result = await query(sql, [limit]);
-        return result.rows;
+        return result.rows || [];
     } catch (error) {
-        return [];
+        logger.error("Error fetching top selling books:", error);
+        throw error;
     }
 }
 
@@ -287,7 +289,33 @@ const createBook = async(bookData) =>{
        
         throw error;
     }
-}
+};
+
+const getNewBooks = async() => {
+    try{
+        const sql = ` SELECT
+            b.bookid,    b.title,    b.author,
+            b.price,     b.compareatprice,
+            b.imageurl,  b.url,
+            b.description, b.stock,
+            b.pages, b.releaseyear,
+            b.isactive,  b.createdat,
+            c.categoryname,
+            p.publishername
+        FROM Books b
+        LEFT JOIN Categories c ON b.categoryid = c.categoryid
+        LEFT JOIN Publishers p ON b.publisherid = p.publisherid
+        WHERE b.isactive = true
+        ORDER BY b.createdat DESC
+        LIMIT 4
+         `;
+        const result = await query(sql);
+        return result.rows;
+    } catch (error) {
+        logger.error("Error fetching new books:", error);
+        throw error;
+    }
+};
 
 //helpers to create a publisher
 const createPublisher = async(publisherData) =>{
@@ -337,6 +365,7 @@ module.exports = { getBooksByCursorPagination,
     getBookByURL, 
     getBookFavorites, 
     getTopSellingBooks, 
+    getNewBooks,
     createBook,
     createPublisher,
     checkPublisherExists,

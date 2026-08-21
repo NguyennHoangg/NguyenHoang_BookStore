@@ -8,15 +8,17 @@ const {
   checkCategoryExists,
   checkPublisherExists,
   createBook,
+  getNewBooks,
   createPublisher,
   createCategory,
 } = require("../models/book.model");
 const { createError } = require("../errors/AppError");
 const { HTTP_STATUS } = require("../constants");
 const { del, delPattern, get, getOrSet, set } = require("../redis/redisCache");
-const DEFAULT_LIMIT = 12;
+const DEFAULT_LIMIT = 14;
 const MAX_LIMIT = 50;
 const redisCache = require("../redis/redisCache");
+const logger = require("../utils/logger");
 
 //CACHING
 const CACHE_KEY = {
@@ -27,6 +29,7 @@ const CACHE_KEY = {
   FAVORITES: `book:favorites`,
   TOP_SELLINGS: (limit) =>
     `book:top_selling:${limit}`,
+  NEW_BOOKS: `book:new_books`,
 };
 
 //Thời gian tồn tại của cache
@@ -35,6 +38,7 @@ const TTL = {
   BOOK_DETAIL: 60 * 10, // 10 phút — detail ít thay đổi hơn
   FAVORITES: 60 * 10, // 10 phút
   TOP_SELLING: 60 * 30, // 30 phút — top selling ít thay đổi nhất
+  NEW_BOOKS: 60 * 30,
 };
 
 /**
@@ -44,7 +48,7 @@ const TTL = {
  */
 const getBooksService = async ({ cursor, limit, sortBy }) => {
   // Validate limit
-  const parsedLimit = parseInt(limit, 4) || DEFAULT_LIMIT;
+  const parsedLimit = parseInt(limit, 10) || DEFAULT_LIMIT;
   if (parsedLimit < 1 || parsedLimit > MAX_LIMIT) {
     throw createError({
       message: `limit phải từ 1 đến ${MAX_LIMIT}`,
@@ -66,9 +70,9 @@ const getBooksService = async ({ cursor, limit, sortBy }) => {
         limit: parsedLimit,
         sortBy: validSortBy,
       });
-      return books; // Bug fix: thiếu return
+      return books;
     },
-    TTL.BOOKS_LIST, // Bug fix: truyền số thay vì object { ttl: ... }
+    TTL.BOOKS_LIST,
   );
 
   return result;
@@ -115,36 +119,10 @@ const getBookFavoritesService = async () => {
   return books;
 };
 
-/**
- * Lấy danh sách sách yêu thích
- * @returns {Promise<Array>} Danh sách sách yêu thích
- * @throws {Error} Nếu không tìm thấy sách yêu thích
- */
-const getFavoriteBooksService = async () => {
-  //Gọi hàm getOrSet để lấy cache hoặc gọi api
-  const books = await redisCache.getOrSet(
-    CACHE_KEY.FAVORITES,
-    async () => {
-      // Gọi DB
-      const books = await getBookFavorites();
-      return books;
-    },
-    TTL.FAVORITES, // Bug fix: truyền số thay vì object { ttl: ... }
-  );
-  if (!books || books.length === 0) {
-    throw createError({
-      message: "Không tìm thấy sách yêu thích",
-      statusCode: HTTP_STATUS.NOT_FOUND,
-      errorCode: "FAVORITE_BOOKS_NOT_FOUND",
-    });
-  }
-  return books;
-};
 
 /**
  * Lấy danh sách sách bán chạy
- * @returns {Promise<Array>} Danh sách sách bán chạy
- * @throws {Error} Nếu không tìm thấy sách bán chạy
+ * @returns {Promise<Array>} Danh sách sách bán chạy (rỗng nếu chưa có)
  */
 const getTopSellingBooksService = async (limit = 4) => {
   //Gọi hàm getOrSet để lấy cache hoặc gọi api
@@ -155,16 +133,10 @@ const getTopSellingBooksService = async (limit = 4) => {
       const books = await getTopSellingBooks(limit);
       return books;
     },
-    TTL.TOP_SELLING, // Bug fix: truyền số thay vì object { ttl: ... }
+    TTL.TOP_SELLING,
   );
-  if (!books || books.length === 0) {
-    throw createError({
-      message: "Không tìm thấy sách bán chạy",
-      statusCode: HTTP_STATUS.NOT_FOUND,
-      errorCode: "TOP_SELLING_BOOKS_NOT_FOUND",
-    });
-  }
-  return books;
+  // Trả về mảng rỗng nếu không có dữ liệu (không throw 404)
+  return books ?? [];
 };
 
 /**
@@ -214,11 +186,38 @@ const createBookService = async (bookData) => {
   }
 };
 
+const getNewBooksService = async() => {
+  try {
+     //Gọi hàm getOrSet để lấy cache hoặc gọi api
+     const result = await redisCache.getOrSet(
+       CACHE_KEY.NEW_BOOKS,
+       async () => {
+         // Gọi DB
+         const books = await getNewBooks();
+         return books;
+       },
+       TTL.NEW_BOOKS,
+     );
+     if(!result){
+      throw createError({
+        message: "Không tìm thấy sách mới",
+        statusCode: HTTP_STATUS.NOT_FOUND,
+        errorCode: "BOOK_NOT_FOUND",
+      });
+     }
+     return result || [];
+  } catch (error) {
+    logger.error(`getNewBooksService() -> Error: ${error.message}`);
+    throw error;
+  }
+}
+
 module.exports = {
   getBooksService,
   getBookByURLService,
+  getBookFavoritesService,  
   getBookFavoritesService,
-  getFavoriteBooksService,
   getTopSellingBooksService,
   createBookService,
+  getNewBooksService,
 };

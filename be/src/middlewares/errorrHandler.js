@@ -6,6 +6,7 @@ const {
 } = require("../errors/AppError");
 const { HTTP_STATUS } = require("../constants");
 const { generateErrorId } = require("../utils/generateId");
+const logger = require("../utils/logger");
 
 /** * Middleware xử lý lỗi toàn cục
  * @param {Error} err - Đối tượng lỗi
@@ -40,7 +41,8 @@ const errorHandler = (err, req, res, next) => {
       stack: err.stack,
     },
   };
-  console.error(JSON.stringify(errLog, null, 2)); // Log lỗi dưới dạng JSON
+  // logger.error tự ghi ra file ở production, có màu ở dev
+  logger.error(JSON.stringify(errLog, null, 2));
 
   let processError = err;
   let statusCode = err.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR;

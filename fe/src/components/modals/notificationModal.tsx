@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { CheckCircleIcon, XCircleIcon, XMarkIcon } from "@heroicons/react/24/outline";
 
 export function NotificationModal({
