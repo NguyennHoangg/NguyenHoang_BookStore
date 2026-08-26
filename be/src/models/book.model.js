@@ -359,6 +359,28 @@ const createCategory = async(categoryData) =>{
     }
 }
 
+const getCategories = async() => {
+    try {
+        const sql = `
+            SELECT
+                c.categoryid,
+                c.categoryname,
+                c.description,
+                c.slug,
+                COUNT(b.bookid) AS quantity
+            FROM categories c
+            LEFT JOIN books b ON b.categoryid = c.categoryid
+            GROUP BY c.categoryid, c.categoryname, c.description, c.slug
+            ORDER BY c.categoryname ASC
+        `;
+        const result = await query(sql);
+        return result.rows;
+    } catch (error) {
+        logger.error("Error fetching categories:", error);
+        throw error;
+    }
+}
+
 
 module.exports = { getBooksByCursorPagination, 
     MAP_CURSOR, 
@@ -371,5 +393,6 @@ module.exports = { getBooksByCursorPagination,
     checkPublisherExists,
     checkCategoryExists,
     checkBookExists,
-    createCategory
+    createCategory,
+    getCategories
  };

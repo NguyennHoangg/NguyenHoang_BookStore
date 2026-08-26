@@ -11,6 +11,7 @@ const {
   getNewBooks,
   createPublisher,
   createCategory,
+  getCategories
 } = require("../models/book.model");
 const { createError } = require("../errors/AppError");
 const { HTTP_STATUS } = require("../constants");
@@ -30,6 +31,7 @@ const CACHE_KEY = {
   TOP_SELLINGS: (limit) =>
     `book:top_selling:${limit}`,
   NEW_BOOKS: `book:new_books`,
+  CATEGORIES: `book:categories:v2`,
 };
 
 //Thời gian tồn tại của cache
@@ -39,6 +41,7 @@ const TTL = {
   FAVORITES: 60 * 10, // 10 phút
   TOP_SELLING: 60 * 30, // 30 phút — top selling ít thay đổi nhất
   NEW_BOOKS: 60 * 30,
+  CATEGORIES: 60 * 60, // 1 giờ — danh mục ít thay đổi
 };
 
 /**
@@ -212,12 +215,38 @@ const getNewBooksService = async() => {
   }
 }
 
+const getCategoriesService = async() => {
+  try {
+    //Gọi hàm getOrSet để lấy cache hoặc gọi api
+    const result = await redisCache.getOrSet(
+      CACHE_KEY.CATEGORIES,
+      async () => {
+        // Gọi DB
+        const categories = await getCategories();
+        return categories;
+      },
+      TTL.CATEGORIES,
+    );
+    if(!result){
+     throw createError({
+       message: "Không tìm thấy danh mục",
+       statusCode: HTTP_STATUS.NOT_FOUND,
+       errorCode: "CATEGORY_NOT_FOUND",
+     });
+    }
+    return result || [];
+ } catch (error) {
+   logger.error(`getCategoriesService() -> Error: ${error.message}`);
+   throw error;
+ }
+}
+
 module.exports = {
   getBooksService,
   getBookByURLService,
   getBookFavoritesService,  
-  getBookFavoritesService,
   getTopSellingBooksService,
   createBookService,
   getNewBooksService,
+  getCategoriesService
 };

@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+
 import { useParams, useNavigate } from "react-router-dom";
-import useAuth from "../../hooks/useAuth";
+
 import useBook from "../../hooks/useBook";
 import BookCardSkeleton from "../../components/skeleton/book-card-skeleton";
 import ErrorPage from "../ErrorPage";
@@ -9,9 +9,10 @@ import Breadcrumbs from "../../components/common/Breadscrumbs";
 import CategoryFilter from "../../components/filter/CategoryFilter";
 import PriceFilter from "../../components/filter/PriceFilter";
 import Pagantion from "../../components/common/Pagination";
+import { BookCard } from "../../components";
 
 export default function ProductPage() {
-  const { books, loading, error } = useBook();
+  const { books, categories, loading, error } = useBook();
   const { url } = useParams();
   const navigate = useNavigate();
 
@@ -33,27 +34,19 @@ export default function ProductPage() {
 
   return (
     <Layout>
-      <main className="container mx-auto">
+      <main className="mx-12 my-4">
         {/*Breadcrumbs*/}
         <Breadcrumbs items={["Home", "Books", url ? url : ""]} />
+        <h1 className="text-4xl my-2 italic font-serif text-[#153328]">Bộ sưu tập tuyển chọn</h1>
 
         <div className="flex w-full gap-4">
-          <div className="flex flex-col w-1/4 border pb-8">
+          <div className="flex flex-col w-[20%] pb-4 px-6">
             <CategoryFilter
-              categories={[
-                { id: "1", name: "Fiction", quantity: 10 },
-                { id: "2", name: "Non-Fiction", quantity: 15 },
-                { id: "3", name: "Science Fiction", quantity: 20 },
-                { id: "4", name: "Fantasy", quantity: 25 },
-                { id: "5", name: "Mystery", quantity: 30 },
-                { id: "6", name: "Thriller", quantity: 35 },
-                { id: "7", name: "Romance", quantity: 40 },
-                { id: "8", name: "Horror", quantity: 45 },
-                { id: "9", name: "Science", quantity: 50 },
-                { id: "10", name: "History", quantity: 55 },
-                { id: "11", name: "Biography", quantity: 60 },
-                { id: "12", name: "Self-Help", quantity: 65 },
-              ]}
+              categories={categories.map((category) => ({
+                id: category.categoryid,
+                name: category.categoryname,
+                quantity: Number(category.quantity) || 0,
+              }))}
               selectedCategory={url ? url : ""}
               onCategoryChange={(value) =>
                 console.log("CATEGORY_FILTER", value)
@@ -67,7 +60,13 @@ export default function ProductPage() {
               max={20000000}
             />
           </div>
-          <div className="flex items-center justify-center border flex-1">
+
+          <div className="flex flex-col items-center flex-1">
+            <div className="grid grid-cols-4 gap-4 w-full">
+              {books.map((book) => (
+                <BookCard key={book.bookid} book={book} />
+              ))}
+            </div>
             <Pagantion
               currentPage={2}
               totalPages={80}

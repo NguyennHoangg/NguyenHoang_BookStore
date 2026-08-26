@@ -29,57 +29,55 @@ export default function BookCard({ book, className, onClick, featured = false }:
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/15 to-transparent" />
 
-        <div className="absolute left-4 top-4 flex flex-wrap gap-2">
+        <div className="absolute left-2 top-2 flex flex-wrap gap-1">
           {book.categoryname && (
-            <span className="bg-surface/90 px-3 py-1 font-sans text-[10px] font-semibold uppercase tracking-[0.22em] text-on-surface">
+            <span className="bg-surface/90 px-2 py-0.5 font-sans text-[9px] font-semibold uppercase tracking-[0.18em] text-on-surface">
               {book.categoryname}
             </span>
           )}
           {!book.isactive && (
-            <span className="bg-error/90 px-3 py-1 font-sans text-[10px] font-semibold uppercase tracking-[0.22em] text-white">
+            <span className="bg-error/90 px-2 py-0.5 font-sans text-[9px] font-semibold uppercase tracking-[0.18em] text-white">
               Tạm ngưng
             </span>
           )}
         </div>
 
-        <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between gap-4 text-white">
+        <div className="absolute bottom-2 left-3 right-3 flex items-end justify-between gap-2 text-white">
           <div className="min-w-0">
-            <p className="font-sans text-[10px] uppercase tracking-[0.28em] text-white/70">
+            <p className="font-sans text-[9px] uppercase tracking-[0.22em] text-white/70">
               Tác giả
             </p>
-            <p className="mt-1 truncate font-serif text-xl font-bold leading-tight">
+            <p className="mt-0.5 truncate font-serif text-sm font-bold leading-tight">
               {book.author}
             </p>
           </div>
-          <span className="shrink-0 border border-white/20 bg-white/10 px-3 py-2 font-sans text-[10px] uppercase tracking-[0.22em] backdrop-blur-sm">
+          <span className="shrink-0 border border-white/20 bg-white/10 px-2 py-1 font-sans text-[9px] uppercase tracking-[0.18em] backdrop-blur-sm">
             Chi tiết
           </span>
         </div>
       </div>
 
-      <div className="flex flex-1 flex-col p-5">
-        <div className="space-y-3">
-          {/* Chiều cao cố định = 2 dòng, responsive theo font-size */}
-          <h3 className="line-clamp-2 h-[3rem] sm:h-[3.5rem] md:h-[4rem] font-serif text-lg sm:text-xl md:text-2xl leading-tight text-on-surface transition-colors group-hover:text-primary">
+      <div className="flex flex-1 flex-col p-3">
+        <div className="space-y-1">
+          <h3 className="line-clamp-2 h-[2.5rem] font-serif text-sm leading-tight text-on-surface transition-colors group-hover:text-primary">
             {book.title}
           </h3>
-          {/* Chiều cao cố định = 2 dòng text-sm leading-relaxed */}
-          <p className="line-clamp-2 h-10 text-sm leading-relaxed text-on-surface-variant">
+          <p className="line-clamp-1 h-5 text-xs leading-relaxed text-on-surface-variant">
             {book.description || `Nhà xuất bản ${book.publishername || "Bookstore"}`}
           </p>
         </div>
 
-        <div className="mt-auto flex items-end justify-between gap-4 border-t border-outline-variant/40 pt-5">
+        <div className="mt-auto flex items-end justify-between gap-2 border-t border-outline-variant/40 pt-2">
           <div>
-            <p className="font-sans text-[10px] uppercase tracking-[0.22em] text-on-surface-variant">
+            <p className="font-sans text-[9px] uppercase tracking-[0.18em] text-on-surface-variant">
               Giá bán
             </p>
-            <div className="mt-2 flex flex-wrap items-baseline gap-3">
-              <span className="font-serif text-2xl text-primary">
+            <div className="mt-1 flex flex-wrap items-baseline gap-2">
+              <span className="font-serif text-base text-primary">
                 {formatPrice(book.price)}
               </span>
               {showComparePrice && (
-                <span className="font-sans text-sm text-on-surface-variant line-through">
+                <span className="font-sans text-xs text-on-surface-variant line-through">
                   {formatPrice(book.compareAtPrice)}
                 </span>
               )}
@@ -87,11 +85,8 @@ export default function BookCard({ book, className, onClick, featured = false }:
           </div>
 
           <div className="text-right">
-            <p className="font-sans text-[10px] uppercase tracking-[0.22em] text-on-surface-variant">
+            <p className="font-sans text-[9px] uppercase tracking-[0.18em] text-on-surface-variant">
               {book.publishername || "Bookstore"}
-            </p>
-            <p className="mt-1 font-serif text-sm italic text-on-surface-variant">
-              {featured ? "Đề xuất nổi bật" : "Xem sản phẩm"}
             </p>
           </div>
         </div>

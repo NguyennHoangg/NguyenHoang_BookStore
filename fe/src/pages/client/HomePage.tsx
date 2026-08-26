@@ -5,6 +5,7 @@ import Button from "../../components/button/button";
 import { NotificationModal } from "../../components/modals/notificationModal";
 import formatPrice from "../../utils/format";
 import useBook from "../../hooks/useBook";
+import useUser from "../../hooks/useUser";
 import { useNavigate } from "react-router-dom";
 import { BookCard } from "../../components";
 import Skeleton from "../../utils/Skeleton";
@@ -17,6 +18,7 @@ export default function HomePage() {
 
   const { newBooks , loading, topSellingLoading, error, topSellingBooks } =
     useBook();
+  const {reviews } = useUser();
   const navigate = useNavigate();
 
   const handleClickBook = (bookUrl: string) => {
@@ -412,26 +414,27 @@ export default function HomePage() {
             </h2>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-8">
-              {[1, 2, 3].map((item) => (
+              {reviews.map((review) => (
                 <div
-                  key={item}
+                  key={review.reviewid}
                   className="bg-white/5 p-6 md:p-10 border border-white/10 hover:bg-white/10 transition-colors"
                 >
                   <div className="text-[#F6D8CE] mb-4 md:mb-6 text-xl tracking-widest">
-                    ★★★★★
+                    {Array.from({ length: review.rating }).map((_, index) => (
+                      <span key={index}>★</span>
+                    ))}
                   </div>
                   <p className="text-white/80 leading-relaxed mb-6 md:mb-8">
-                    "Sách được bọc cẩn thận, giao hàng nhanh. Mình rất thích mùi
-                    giấy của những ấn bản đặc biệt mua tại đây."
+                    {review.comment}
                   </p>
                   <div className="flex items-center gap-4">
                     <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-white/20 shrink-0"></div>
                     <div>
                       <p className="font-serif font-bold text-emerald-50">
-                        Độc giả {item}
+                        Độc giả {review.fullname}
                       </p>
                       <p className="text-xs text-white/50 uppercase tracking-wider mt-1">
-                        Khách hàng thân thiết
+                        {review.role}
                       </p>
                     </div>
                   </div>

@@ -10,7 +10,17 @@ const findByCredential = async (credential) => {
   return result.rows[0];
 };
 
-const createAccount = async ({accountId, identifier, identifiervalue, passwordHash, role, createdAt, updatedAt, isActive, avatar}) => {
+const createAccount = async ({
+  accountId,
+  identifier,
+  identifiervalue,
+  passwordHash,
+  role,
+  createdAt,
+  updatedAt,
+  isActive,
+  avatar,
+}) => {
   try {
     await query("BEGIN");
     const insertAccountText =
@@ -22,10 +32,10 @@ const createAccount = async ({accountId, identifier, identifiervalue, passwordHa
       identifiervalue,
       passwordHash,
       role,
-      createdAt = new Date(),
-      updatedAt = new Date(),
-      isActive = true,
-      avatar ? avatar : ""
+      (createdAt = new Date()),
+      (updatedAt = new Date()),
+      (isActive = true),
+      avatar ? avatar : "",
     ];
     const accountResult = await query(insertAccountText, accountValues);
     const newAccountId = accountResult.rows[0].accountid;
@@ -35,9 +45,17 @@ const createAccount = async ({accountId, identifier, identifiervalue, passwordHa
     await query("ROLLBACK");
     throw error;
   }
-}
+};
 
-const createUser = async (userId, accountId, fullName, phone, dob, gender, address) => {
+const createUser = async (
+  userId,
+  accountId,
+  fullName,
+  phone,
+  dob,
+  gender,
+  address,
+) => {
   try {
     // Start transaction
     await query("BEGIN");
@@ -51,9 +69,9 @@ const createUser = async (userId, accountId, fullName, phone, dob, gender, addre
       userId,
       accountId,
       fullName,
-      phone   || null,
-      dob     || null,
-      gender  || null,
+      phone || null,
+      dob || null,
+      gender || null,
       address || null,
     ];
 
@@ -78,4 +96,41 @@ const updateLastLoginAt = async (accountId) => {
   await query(sql, [accountId]);
 };
 
-module.exports = { findByCredential, createAccount, createUser, updateLastLoginAt };
+const getReviews = async () => {
+  const sql = `
+    SELECT b.bookid, b.title, u.fullname,
+           r.reviewid, r.comment, r.rating,
+           a.role, a.avatar
+    FROM reviews r
+    JOIN books b ON r.bookid = b.bookid
+    JOIN users u ON u.accountid = r.accountid
+    JOIN accounts a ON a.accountid = r.accountid
+    LIMIT 3
+  `;
+  const result = await query(sql);
+  return result.rows;
+};
+
+const getReviewsByUser = async (userId) => {
+  const sql = `
+    SELECT b.bookid, b.title, u.fullname,
+           r.reviewid, r.comment, r.rating,
+           a.role, a.avatar
+    FROM reviews r
+    JOIN books b ON r.bookid = b.bookid
+    JOIN users u ON u.accountid = r.accountid
+    JOIN accounts a ON a.accountid = r.accountid
+    WHERE u.userid = $1
+  `;
+  const result = await query(sql, [userId]);
+  return result.rows;
+};
+
+module.exports = {
+  findByCredential,
+  createAccount,
+  createUser,
+  updateLastLoginAt,
+  getReviews,
+  getReviewsByUser,
+};
