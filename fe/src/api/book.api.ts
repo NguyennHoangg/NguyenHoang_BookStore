@@ -47,6 +47,19 @@ export interface GetNewBooks {
     data: Book[];
 }
 
+export interface Category {
+    categoryid: string;
+    categoryname: string;
+    description: string;
+    slug: string;
+    quantity: string; // PostgreSQL COUNT trả về bigint dạng string
+}
+
+export interface GetCategoriesResponse {
+    success: boolean;
+    data: Category[];
+}
+
 const bookApi = {
     getBooks(params: { limit?: number; cursor?: string; sortBy?: string }): Promise<GetBooksResponse> {
         const url = '/books';
@@ -72,6 +85,11 @@ const bookApi = {
     getNewBooks() : Promise<GetNewBooks> {
         const url = '/books/new-books';
         return axiosClient.get(url) as Promise<GetNewBooks>;
+    },
+
+    getCategories() : Promise<GetCategoriesResponse> {
+        const url = '/books/categories';
+        return axiosClient.get(url) as Promise<GetCategoriesResponse>;
     }
 };
 

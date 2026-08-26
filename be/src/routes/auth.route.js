@@ -18,4 +18,5 @@ router.post("/refresh", refreshTokenController);
 // Protected: cần access token hợp lệ để logout
 router.post("/logout", authMiddleware, logoutController);
 
+
 module.exports = router;

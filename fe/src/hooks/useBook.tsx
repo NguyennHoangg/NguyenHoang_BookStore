@@ -1,6 +1,6 @@
 import {useState, useEffect} from 'react';
 import bookApi from '../api/book.api';
-import type { Book } from '../api/book.api';
+import type { Book, Category } from '../api/book.api';
 
 export default function useBook() {
     const [books, setBooks] = useState<Book[]>([]);
@@ -12,12 +12,14 @@ export default function useBook() {
     const [topSellingBooks, setTopSellingBooks] = useState<Book[]>([]);
     const [newBooks, setNewBooks] = useState<Book[]>([]);
 
+    const [categories, setCategories] = useState<Category[]>([]);
+
     useEffect(() => {
         const fetchBooks = async () => {
             setLoading(true);
             setError(null);
             try {
-                const response = await bookApi.getBooks({ limit: 12 });
+                const response = await bookApi.getBooks({ limit: 8 });
                 setBooks(response.data);
             } catch (err) {
                 setError(err instanceof Error ? err.message : String(err));
@@ -67,11 +69,25 @@ export default function useBook() {
         }
     }
 
+    const fetchCategories = async () => {
+        try {
+            setLoading(true);
+            setError(null);
+            const response = await bookApi.getCategories();
+            setCategories(response.data);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : String(err));
+        } finally {
+            setLoading(false);
+        }
+    }
+
     useEffect(() => {
         fetchFavoriteBooks();
         fetchTopSellingBooks();
         fecthNewBooks();
+        fetchCategories();
     }, []);
 
-    return { books, loading, topSellingLoading, error, favoriteBooks, topSellingBooks, newBooks };
+    return { books, loading, topSellingLoading, error, favoriteBooks, topSellingBooks, newBooks, categories };
 }
