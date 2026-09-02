@@ -4,8 +4,8 @@ export interface Book {
     bookid: string;
     title: string;
     author: string;
-    price: number;
-    compareAtPrice: number;
+    price: number | string;
+    compareatprice: number | string;
     imageurl: string;
     url: string;
     description?: string;
@@ -16,8 +16,8 @@ export interface Book {
     stock?: number;
     pages?: number;
     releaseyear?: number;
-    discount?: number;
-    rating?: number;
+    discount?: number | string;
+    rating?: number | string;
     soldcount?: number;
 }
 
@@ -42,6 +42,11 @@ export interface GetTopSellingBooksResponse {
     data: Book[];
 }
 
+export interface GetBooksByCategoryResponse {
+    success: boolean;
+    data: Book[];
+}
+
 export interface GetNewBooks {
     success: boolean;
     data: Book[];
@@ -61,7 +66,7 @@ export interface GetCategoriesResponse {
 }
 
 const bookApi = {
-    getBooks(params: { limit?: number; cursor?: string; sortBy?: string }): Promise<GetBooksResponse> {
+    getBooks(params: { limit?: number; cursor?: string; sortBy?: string; category?: string }): Promise<GetBooksResponse> {
         const url = '/books';
         return axiosClient.get(url, { params }) as Promise<GetBooksResponse>;
     },
@@ -90,7 +95,7 @@ const bookApi = {
     getCategories() : Promise<GetCategoriesResponse> {
         const url = '/books/categories';
         return axiosClient.get(url) as Promise<GetCategoriesResponse>;
-    }
+    },
 };
 
-export default bookApi;
+export default bookApi;  

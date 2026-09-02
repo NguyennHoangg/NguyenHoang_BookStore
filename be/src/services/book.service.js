@@ -49,7 +49,7 @@ const TTL = {
  *
  * @param {object} query - query params từ request
  */
-const getBooksService = async ({ cursor, limit, sortBy }) => {
+const getBooksService = async ({ cursor, limit, sortBy, category }) => {
   // Validate limit
   const parsedLimit = parseInt(limit, 10) || DEFAULT_LIMIT;
   if (parsedLimit < 1 || parsedLimit > MAX_LIMIT) {
@@ -65,13 +65,14 @@ const getBooksService = async ({ cursor, limit, sortBy }) => {
 
   //Gọi hàm getOrSet - để lấy cache hoặc gọi api
   const result = await redisCache.getOrSet(
-    CACHE_KEY.BOOK_LIST(cursor, parsedLimit, validSortBy),
+    CACHE_KEY.BOOK_LIST(cursor, parsedLimit, validSortBy, category ?? ''),
     async () => {
       // Gọi DB
       const books = await getBooksByCursorPagination({
         cursor,
         limit: parsedLimit,
         sortBy: validSortBy,
+        category: category || null,
       });
       return books;
     },

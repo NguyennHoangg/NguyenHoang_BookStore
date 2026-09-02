@@ -10,12 +10,13 @@ const { HTTP_STATUS } = require("../constants");
 
 const getBooksController = async (req, res, next) => {
   try {
-    const { cursor, limit, sortBy } = req.query;
+    const { cursor, limit, sortBy, category } = req.query;
 
     const { books, nextCursor, hasNextPage } = await getBooksService({
       cursor,
       limit,
       sortBy,
+      category,
     });
 
     return res.status(HTTP_STATUS.OK).json({

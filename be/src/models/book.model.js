@@ -54,6 +54,7 @@ const getBooksByCursorPagination = async ({
     limit    = 6,
     sortBy   = 'default',
     activeOnly = true,
+    category = null
 } = {}) => {
     const map = MAP_CURSOR[sortBy] ?? MAP_CURSOR.default;
     const { sortCol, dir, tiebreak } = map;
@@ -101,6 +102,12 @@ const getBooksByCursorPagination = async ({
         }
     }
 
+    // Thêm điều kiện lọc theo category slug nếu có
+    if (category) {
+        params.push(category);
+        conditions.push(`c.slug = $${params.length}`);
+    }
+
     // Kết hợp các điều kiện thành WHERE clause
     const whereSQL = conditions.length
         ? `WHERE ${conditions.join(' AND ')}`
@@ -137,7 +144,7 @@ const getBooksByCursorPagination = async ({
     const hasNextPage = rows.length > limit;
 
     // Nếu có trang tiếp, loại bỏ phần tử thứ (limit + 1) để trả về đúng số sách yêu cầu
-    const books       = hasNextPage ? rows.slice(0, limit) : rows;
+    const books = hasNextPage ? rows.slice(0, limit) : rows;
 
     // Tạo cursor từ dòng cuối cùng của trang hiện tại
     let nextCursor = null;
