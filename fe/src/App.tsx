@@ -17,6 +17,8 @@ const AdminBooksPage = lazy(() => import("./pages/admin/AdminBooksPage"))
 const AdminAuthorsPage = lazy(() => import("./pages/admin/AdminAuthorsPage"))
 const AdminPublishersPage = lazy(() => import("./pages/admin/AdminPublishersPage"))
 const BooksPage = lazy(() => import("./pages/client/ProductPage"));
+const AboutPage = lazy(() => import("./pages/client/AboutPage"));
+const ContactPage = lazy(() => import("./pages/client/ContactPage"));
 
 
 
@@ -40,6 +42,8 @@ function App() {
           <Route path="authors" element={<AdminAuthorsPage />} />
           <Route path="publishers" element={<AdminPublishersPage />} />
         </Route>
+        <Route path="/about" element={<AboutPage />} />
+        <Route path="/contact" element={<ContactPage />} />
         <Route path="/" element={<HomePage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>

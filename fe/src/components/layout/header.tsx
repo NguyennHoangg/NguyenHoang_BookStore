@@ -37,8 +37,8 @@ export default function Header() {
           <ul className="flex gap-8 xl:gap-12 items-center">
             <li><a href="/" className="nav-link">Home</a></li>
             <li><a href="/books" className="nav-link">Books</a></li>
-            <li><a href="#about" className="nav-link">About</a></li>
-            <li><a href="#contact" className="nav-link">Contact</a></li>
+            <li><a href="/about" className="nav-link">About</a></li>
+            <li><a href="/contact" className="nav-link">Contact</a></li>
           </ul>
         </nav>
 
@@ -129,8 +129,8 @@ export default function Header() {
           {[
             { label: "Home", href: "/" },
             { label: "Books", href: "/books" },
-            { label: "About", href: "#about" },
-            { label: "Contact", href: "#contact" },
+            { label: "About", href: "/about" },
+            { label: "Contact", href: "/contact" },
           ].map((item) => (
             <a
               key={item.href}
