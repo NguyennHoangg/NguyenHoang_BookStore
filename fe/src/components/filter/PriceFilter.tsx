@@ -20,7 +20,7 @@ export default function PriceFilter({
 
   return (
     <div className="flex flex-col gap-4 mt-10">
-     <h3 className="font-sans text-lg">Khoảng giá</h3>
+     <h3 className="font-serif italic text-[#153328] text-xl">Khoảng giá</h3>
 
       <Slider
         className="text-[#0a1813]"

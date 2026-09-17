@@ -272,7 +272,7 @@ export default function HomePage() {
                 </h2>
               </div>
               <a
-                href="#"
+                href="/books"
                 className="text-xs tracking-widest uppercase border-b border-black pb-1 font-semibold"
               >
                 Xem tất cả

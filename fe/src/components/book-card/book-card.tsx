@@ -1,6 +1,8 @@
 import Card from "../card/card";
 import formatPrice from "../../utils/format";
 import type { Book } from "../../api/book.api";
+import { ShoppingCartIcon, ShoppingBagIcon } from "@heroicons/react/24/outline";
+import { useNavigate } from "react-router-dom";
 
 interface BookCardProps {
   book: Book;
@@ -10,14 +12,22 @@ interface BookCardProps {
 }
 
 export default function BookCard({ book, className, onClick, featured = false }: BookCardProps) {
-  const showComparePrice =
-    typeof book.compareAtPrice === "number" && book.compareAtPrice > book.price;
+  const compareatprice = parseFloat(String(book.compareatprice));
+  const price = parseFloat(String(book.price));
+  const discount = parseFloat(String(book.discount ?? 0));
+  const showComparePrice = !isNaN(compareatprice) && compareatprice > price;
+  const showDiscount = !isNaN(discount) && discount > 0;
 
+  const navigate = useNavigate();
+  const handleClick = () => {
+    navigate(`/book/${book.url}`);
+    onClick?.();
+  }
   return (
     <Card
       elevated={featured}
       clickable={Boolean(onClick)}
-      onClick={onClick}
+      onClick={handleClick}
       padding={false}
       className={`group flex h-full flex-col ${className || ""}`}
     >
@@ -51,9 +61,6 @@ export default function BookCard({ book, className, onClick, featured = false }:
               {book.author}
             </p>
           </div>
-          <span className="shrink-0 border border-white/20 bg-white/10 px-2 py-1 font-sans text-[9px] uppercase tracking-[0.18em] backdrop-blur-sm">
-            Chi tiết
-          </span>
         </div>
       </div>
 
@@ -67,27 +74,54 @@ export default function BookCard({ book, className, onClick, featured = false }:
           </p>
         </div>
 
-        <div className="mt-auto flex items-end justify-between gap-2 border-t border-outline-variant/40 pt-2">
-          <div>
-            <p className="font-sans text-[9px] uppercase tracking-[0.18em] text-on-surface-variant">
-              Giá bán
-            </p>
-            <div className="mt-1 flex flex-wrap items-baseline gap-2">
-              <span className="font-serif text-base text-primary">
-                {formatPrice(book.price)}
-              </span>
-              {showComparePrice && (
-                <span className="font-sans text-xs text-on-surface-variant line-through">
-                  {formatPrice(book.compareAtPrice)}
+        <div className="relative mt-auto overflow-hidden border-t border-outline-variant/40 pt-2" style={{ height: "3.5rem" }}>
+          {/* Giá bán — trượt xuống & mờ đi khi hover */}
+          <div className="absolute inset-x-0 top-0 flex items-end justify-between gap-2 transition-all duration-300 group-hover:translate-y-4 group-hover:opacity-0">
+            <div>
+              <p className="font-sans text-[9px] uppercase tracking-[0.18em] text-on-surface-variant">
+                Giá bán
+              </p>
+              <div className="mt-1 flex flex-wrap items-baseline gap-2">
+                <span className="font-serif text-base text-primary">
+                  {formatPrice(price)}
                 </span>
-              )}
+                {showComparePrice && (
+                  <span className="font-sans text-xs text-on-surface-variant line-through">
+                    {formatPrice(compareatprice)}
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="font-sans text-[10px] uppercase tracking-[0.18em] text-on-surface-variant">
+                Giảm giá
+              </p>
+              <div className="mt-1 flex flex-wrap items-baseline gap-2">
+                {showDiscount && (
+                  <span className="font-sans text-xs font-semibold text-error">
+                    -{discount.toFixed(0)}%
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
-          <div className="text-right">
-            <p className="font-sans text-[9px] uppercase tracking-[0.18em] text-on-surface-variant">
-              {book.publishername || "Bookstore"}
-            </p>
+          {/* 2 button — ẩn bên dưới, trượt lên khi hover */}
+          <div className="absolute inset-x-0 top-5 flex translate-y-6 items-center gap-2 opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100">
+            <button
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-md bg-primary px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-white transition-opacity hover:opacity-80"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <ShoppingBagIcon className="h-3.5 w-3.5" />
+              Mua ngay
+            </button>
+            <button
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-primary px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-primary transition-opacity hover:bg-primary/10"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <ShoppingCartIcon className="h-3.5 w-3.5" />
+              Giỏ hàng
+            </button>
           </div>
         </div>
       </div>

@@ -1,5 +1,5 @@
 
-import { useParams, useNavigate } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 
 import useBook from "../../hooks/useBook";
 import BookCardSkeleton from "../../components/skeleton/book-card-skeleton";
@@ -10,23 +10,17 @@ import CategoryFilter from "../../components/filter/CategoryFilter";
 import PriceFilter from "../../components/filter/PriceFilter";
 import Pagantion from "../../components/common/Pagination";
 import { BookCard } from "../../components";
+import RatingFilter from "../../components/filter/RatingFilter";
 
 export default function ProductPage() {
-  const { books, categories, loading, error } = useBook();
-  const { url } = useParams();
-  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const slug = searchParams.get("category") ?? undefined;
 
-  if (loading) {
-    return (
-      <div className="mx-auto max-w-7xl px-4 py-10">
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          {Array.from({ length: 12 }).map((_, i) => (
-            <BookCardSkeleton key={i} />
-          ))}
-        </div>
-      </div>
-    );
-  }
+  const { books, categories, booksLoading, error } = useBook(slug);
+
+  const handleCategoryChange = (categorySlug: string) => {
+    setSearchParams(categorySlug ? { category: categorySlug } : {});
+  };
 
   if (error) {
     return <ErrorPage />;
@@ -36,7 +30,7 @@ export default function ProductPage() {
     <Layout>
       <main className="mx-12 my-4">
         {/*Breadcrumbs*/}
-        <Breadcrumbs items={["Home", "Books", url ? url : ""]} />
+        <Breadcrumbs items={["Home", "Books", slug ? categories.find((category) => category.slug === slug)?.categoryname : "Tất cả danh mục sách"]} />
         <h1 className="text-4xl my-2 italic font-serif text-[#153328]">Bộ sưu tập tuyển chọn</h1>
 
         <div className="flex w-full gap-4">
@@ -44,13 +38,12 @@ export default function ProductPage() {
             <CategoryFilter
               categories={categories.map((category) => ({
                 id: category.categoryid,
+                slug: category.slug,
                 name: category.categoryname,
                 quantity: Number(category.quantity) || 0,
               }))}
-              selectedCategory={url ? url : ""}
-              onCategoryChange={(value) =>
-                console.log("CATEGORY_FILTER", value)
-              }
+              selectedCategory={slug ?? ""}
+              onCategoryChange={handleCategoryChange}
             />
 
             <PriceFilter
@@ -59,13 +52,28 @@ export default function ProductPage() {
               min={100000}
               max={20000000}
             />
+
+            <RatingFilter
+              currentRating={0}
+              onFilterChange={(rating) => console.log("RATING_FILTER", rating)}
+            />
           </div>
 
           <div className="flex flex-col items-center flex-1">
+            <div className="flex justify-end w-full mb-4">
+              <select className="border border-gray-300 rounded-md py-1 px-2 bg-gray-300 text-black">
+                <option value="">Sắp xếp theo</option>
+                <option value="price-asc">Giá tăng dần</option>
+                <option value="price-desc">Giá giảm dần</option>
+                <option value="name-asc">Tên A-Z</option>
+                <option value="name-desc">Tên Z-A</option>
+              </select>
+            </div>
             <div className="grid grid-cols-4 gap-4 w-full">
-              {books.map((book) => (
-                <BookCard key={book.bookid} book={book} />
-              ))}
+              {booksLoading
+                ? Array.from({ length: 8 }).map((_, i) => <BookCardSkeleton key={i} />)
+                : books.map((book) => <BookCard key={book.bookid} book={book} />)
+              }
             </div>
             <Pagantion
               currentPage={2}
@@ -74,6 +82,7 @@ export default function ProductPage() {
             />
           </div>
         </div>
+
       </main>
     </Layout>
   );
