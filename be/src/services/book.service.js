@@ -23,8 +23,8 @@ const logger = require("../utils/logger");
 
 //CACHING
 const CACHE_KEY = {
-  BOOK_LIST: (cursor, limit, sortBy) =>
-    `book:list:${cursor || "starts"}:${limit}:${sortBy}`,
+  BOOK_LIST: (cursor, limit, sortBy, category, minPrice, maxPrice, rating) =>
+    `book:list:${cursor || "starts"}:${limit}:${sortBy}:${category || 'all'}:${minPrice || ''}:${maxPrice || ''}:${rating || ''}`,
   BOOK_DETAIL: (url) =>
     `book:detail:${url}`,
   FAVORITES: `book:favorites`,
@@ -49,7 +49,7 @@ const TTL = {
  *
  * @param {object} query - query params từ request
  */
-const getBooksService = async ({ cursor, limit, sortBy, category }) => {
+const getBooksService = async ({ cursor, limit, sortBy, category, minPrice, maxPrice, rating }) => {
   // Validate limit
   const parsedLimit = parseInt(limit, 10) || DEFAULT_LIMIT;
   if (parsedLimit < 1 || parsedLimit > MAX_LIMIT) {
@@ -63,9 +63,14 @@ const getBooksService = async ({ cursor, limit, sortBy, category }) => {
   // Validate sortBy
   const validSortBy = sortBy && MAP_CURSOR[sortBy] ? sortBy : "default";
 
+  // Parse price & rating filters
+  const parsedMinPrice = minPrice ? parseFloat(minPrice) : null;
+  const parsedMaxPrice = maxPrice ? parseFloat(maxPrice) : null;
+  const parsedRating   = rating   ? parseFloat(rating)   : null;
+
   //Gọi hàm getOrSet - để lấy cache hoặc gọi api
   const result = await redisCache.getOrSet(
-    CACHE_KEY.BOOK_LIST(cursor, parsedLimit, validSortBy, category ?? ''),
+    CACHE_KEY.BOOK_LIST(cursor, parsedLimit, validSortBy, category ?? '', parsedMinPrice, parsedMaxPrice, parsedRating),
     async () => {
       // Gọi DB
       const books = await getBooksByCursorPagination({
@@ -73,6 +78,9 @@ const getBooksService = async ({ cursor, limit, sortBy, category }) => {
         limit: parsedLimit,
         sortBy: validSortBy,
         category: category || null,
+        minPrice: parsedMinPrice,
+        maxPrice: parsedMaxPrice,
+        rating: parsedRating,
       });
       return books;
     },

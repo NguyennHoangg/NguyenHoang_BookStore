@@ -4,21 +4,20 @@ import Footer from "../../components/layout/footer";
 import Button from "../../components/button/button";
 import { NotificationModal } from "../../components/modals/notificationModal";
 import formatPrice from "../../utils/format";
-import useBook from "../../hooks/useBook";
 import useUser from "../../hooks/useUser";
 import { useNavigate } from "react-router-dom";
 import { BookCard } from "../../components";
 import Skeleton from "../../utils/Skeleton";
 import ErrorPage from "../ErrorPage";
+import useHomeData from "../../hooks/useHomeData";
 
 type NotifState = { message: string; type: "success" | "error" } | null;
 
 export default function HomePage() {
   const [notif, setNotif] = useState<NotifState>(null);
 
-  const { newBooks , loading, topSellingLoading, error, topSellingBooks } =
-    useBook();
-  const {reviews } = useUser();
+  const {topSellingBooks,newBooks,loading,topSellingLoading,error} = useHomeData()
+  const { reviews } = useUser();
   const navigate = useNavigate();
 
   const handleClickBook = (bookUrl: string) => {
@@ -162,11 +161,16 @@ export default function HomePage() {
                   transformOrigin: "center center",
                 }}
               >
-                <img
-                  src={newBooks[2]?.imageurl || "/default-book.jpg"}
-                  alt={newBooks[2]?.title || "Book cover"}
-                  className="w-full h-full object-cover"
-                />
+                <a
+                  href={`/book/${newBooks[2]?.url}`}
+                  className="block w-full h-full object-cover"
+                >
+                  <img
+                    src={newBooks[2]?.imageurl || "/default-book.jpg"}
+                    alt={newBooks[2]?.title || "Book cover"}
+                    className="w-full h-full object-cover"
+                  />
+                </a>
               </div>
 
               {/* Thẻ nổi (Floating Card) */}
@@ -198,7 +202,7 @@ export default function HomePage() {
           <div className="hidden md:grid grid-cols-12 grid-rows-2 gap-6 h-[500px] lg:h-[600px]">
             {/* Khối lớn bên trái */}
             <a
-              href="/category"
+              href="/books?category=van-hoc-nuoc-ngoai"
               className="col-span-6 row-span-2 bg-gray-700 relative overflow-hidden flex items-end p-6 lg:p-8 text-white group cursor-pointer hover:opacity-95 transition-all rounded-xl"
             >
               <img
@@ -212,25 +216,35 @@ export default function HomePage() {
             </a>
             {/* Hai khối nhỏ bên phải */}
             <div className="col-span-3 row-span-1 rounded-md bg-[#F6D8CE] relative overflow-hidden flex items-end p-6 lg:p-8 text-gray-900 group cursor-pointer hover:opacity-90 transition-all">
-              <img
-                src="/Philosophy.webp"
-                alt="Philosophy"
-                className="absolute inset-0 w-full h-full object-cover object-center opacity-80"
-              />
-              <span className="relative z-10 text-xl lg:text-2xl font-serif italic">Triết lý</span>
+              <a href="/books?category=phat-trien-ban-than">
+                <img
+                  src="/Philosophy.webp"
+                  alt="Philosophy"
+                  className="absolute inset-0 w-full h-full object-cover object-center opacity-80"
+                />
+              </a>
+              <span className="relative z-10 text-xl lg:text-2xl font-serif italic">
+                Triết lý
+              </span>
             </div>
             <div className="col-span-3 row-span-1 rounded-md bg-[#1A362D] text-white relative overflow-hidden flex items-end p-6 lg:p-8 group cursor-pointer hover:opacity-90 transition-all">
-              <img
-                src="/Technology.webp"
-                alt="Science"
-                className="absolute inset-0 w-full h-full object-cover object-center opacity-80"
-              />
-              <span className="relative z-10 text-xl lg:text-2xl font-serif italic">Khoa học & Công nghệ</span>
+              <a href="/books?category=khoa-hoc-vien-tuong">
+                <img
+                  src="/Technology.webp"
+                  alt="Science"
+                  className="absolute inset-0 w-full h-full object-cover object-center opacity-80"
+                />
+              </a>
+              <span className="relative z-10 text-xl lg:text-2xl font-serif italic">
+                Khoa học & Công nghệ
+              </span>
             </div>
             <div className="col-span-6 row-span-1 bg-[#E5E0D8] flex items-center justify-center cursor-pointer hover:bg-[#dcd6ce] transition-colors rounded-xl">
-              <p className="text-[#2A4B41] font-serif italic text-lg">
-                Khám phá thêm các danh mục khác →
-              </p>
+              <a href="/books">
+                <p className="text-[#2A4B41] font-serif italic text-lg">
+                  Khám phá thêm các danh mục khác →
+                </p>
+              </a>
             </div>
           </div>
 
@@ -240,21 +254,41 @@ export default function HomePage() {
               href="/category"
               className="h-52 bg-gray-700 relative overflow-hidden flex items-end p-5 text-white rounded-xl"
             >
-              <img src="/Fiction.webp" alt="Literature" className="absolute inset-0 w-full h-full object-cover opacity-80" />
-              <span className="relative z-10 text-xl font-serif italic">Văn học & Tiểu thuyết</span>
+              <img
+                src="/Fiction.webp"
+                alt="Literature"
+                className="absolute inset-0 w-full h-full object-cover opacity-80"
+              />
+              <span className="relative z-10 text-xl font-serif italic">
+                Văn học & Tiểu thuyết
+              </span>
             </a>
             <div className="grid grid-cols-2 gap-4">
               <div className="h-36 rounded-md bg-[#F6D8CE] relative overflow-hidden flex items-end p-4 text-gray-900">
-                <img src="/Philosophy.webp" alt="Philosophy" className="absolute inset-0 w-full h-full object-cover opacity-80" />
-                <span className="relative z-10 text-base font-serif italic">Triết lý</span>
+                <img
+                  src="/Philosophy.webp"
+                  alt="Philosophy"
+                  className="absolute inset-0 w-full h-full object-cover opacity-80"
+                />
+                <span className="relative z-10 text-base font-serif italic">
+                  Triết lý
+                </span>
               </div>
               <div className="h-36 rounded-md bg-[#1A362D] text-white relative overflow-hidden flex items-end p-4">
-                <img src="/Technology.webp" alt="Science" className="absolute inset-0 w-full h-full object-cover opacity-80" />
-                <span className="relative z-10 text-base font-serif italic">Khoa học</span>
+                <img
+                  src="/Technology.webp"
+                  alt="Science"
+                  className="absolute inset-0 w-full h-full object-cover opacity-80"
+                />
+                <span className="relative z-10 text-base font-serif italic">
+                  Khoa học
+                </span>
               </div>
             </div>
             <div className="h-16 bg-[#E5E0D8] flex items-center justify-center rounded-xl">
-              <p className="text-[#2A4B41] font-serif italic text-sm">Khám phá thêm →</p>
+              <p className="text-[#2A4B41] font-serif italic text-sm">
+                Khám phá thêm →
+              </p>
             </div>
           </div>
         </section>
@@ -346,9 +380,14 @@ export default function HomePage() {
                 </h3>
                 <div className="flex justify-between items-center border-t border-gray-200 pt-3">
                   <span className="font-bold">
-                    {topSellingBooks[0] ? formatPrice(topSellingBooks[0].price) : "..."}
+                    {topSellingBooks[0]
+                      ? formatPrice(topSellingBooks[0].price)
+                      : "..."}
                   </span>
-                  <Button variant="primary" className="bg-[#2A4B41] border-[#2A4B41] text-white py-1.5 text-sm">
+                  <Button
+                    variant="primary"
+                    className="bg-[#2A4B41] border-[#2A4B41] text-white py-1.5 text-sm"
+                  >
                     Mua ngay
                   </Button>
                 </div>

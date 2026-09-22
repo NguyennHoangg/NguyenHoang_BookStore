@@ -50,11 +50,14 @@ const decodeCursor = (cursor) => {
  * @returns {{ books: [], nextCursor: string|null, hasNextPage: boolean }}
  */
 const getBooksByCursorPagination = async ({
-    cursor   = null,
-    limit    = 6,
-    sortBy   = 'default',
+    cursor    = null,
+    limit     = 6,
+    sortBy    = 'default',
     activeOnly = true,
-    category = null
+    category  = null,
+    minPrice  = null,
+    maxPrice  = null,
+    rating    = null,
 } = {}) => {
     const map = MAP_CURSOR[sortBy] ?? MAP_CURSOR.default;
     const { sortCol, dir, tiebreak } = map;
@@ -82,21 +85,39 @@ const getBooksByCursorPagination = async ({
 
         //Nếu decode thành công, thêm điều kiện WHERE để lấy sách tiếp theo
         if (decoded) {
-            params.push(decoded.sv, decoded.id);
+            const op = dir === 'ASC' ? '>' : '<';
 
-            // p1, p2 là placeholder cho sortCol và tiebreak trong SQL 
-            const p1 = `$${params.length - 1}`;
-            const p2 = `$${params.length}`;
-        
             if (tiebreak) {
-                // Row comparison: (price, bookid) > ($1, $2)  [hoặc < với DESC]
-                // Nếu sortCol trùng nhau, dùng tiebreak để phân biệt (luôn ASC)
-                // Ví dụ: (b.price, b.bookid) > ($1, $2)
-                const op = dir === 'ASC' ? '>' : '<';
+                // Row comparison: (sortCol, tiebreak) > ($p1::cast, $p2::varchar)
+                // Cần push cả sv lẫn id vào params
+                params.push(decoded.sv, decoded.id);
+                const p1idx = params.length - 1;
+                const p2idx = params.length;
+
+                // Cast tường minh để PostgreSQL biết kiểu trong extended query protocol
+                const SORT_CAST = {
+                    'b.price':     '::numeric',
+                    'b.createdat': '::timestamptz',
+                    'b.title':     '::text',
+                    'b.bookid':    '::varchar',
+                };
+                const p1 = `$${p1idx}${SORT_CAST[sortCol] ?? ''}`;
+                const p2 = `$${p2idx}::varchar`;
+
                 conditions.push(`(${sortCol}, ${tiebreak}) ${op} (${p1}, ${p2})`);
             } else {
-                // Không có tiebreak (default sort by bookid)
-                const op = dir === 'ASC' ? '>' : '<';
+                // Chỉ sort theo 1 cột (default: bookid), không cần id làm tiebreak
+                // → chỉ push sv, KHÔNG push id để tránh orphaned param
+                params.push(decoded.sv);
+                const p1idx = params.length;
+
+                const SORT_CAST = {
+                    'b.price':     '::numeric',
+                    'b.createdat': '::timestamptz',
+                    'b.title':     '::text',
+                    'b.bookid':    '::varchar',
+                };
+                const p1 = `$${p1idx}${SORT_CAST[sortCol] ?? ''}`;
                 conditions.push(`${sortCol} ${op} ${p1}`);
             }
         }
@@ -106,6 +127,22 @@ const getBooksByCursorPagination = async ({
     if (category) {
         params.push(category);
         conditions.push(`c.slug = $${params.length}`);
+    }
+
+    // Thêm điều kiện lọc theo khoảng giá
+    if (minPrice !== null) {
+        params.push(minPrice);
+        conditions.push(`b.price >= $${params.length}`);
+    }
+    if (maxPrice !== null) {
+        params.push(maxPrice);
+        conditions.push(`b.price <= $${params.length}`);
+    }
+
+    // Thêm điều kiện lọc theo rating (rating >= giá trị yêu cầu)
+    if (rating !== null) {
+        params.push(rating);
+        conditions.push(`b.rating >= $${params.length}`);
     }
 
     // Kết hợp các điều kiện thành WHERE clause
@@ -119,8 +156,10 @@ const getBooksByCursorPagination = async ({
         : `ORDER BY ${sortCol} ${dir}`;
 
     // --- LIMIT ---
-    params.push(fetchLimit);
-    const limitSQL = `LIMIT $${params.length}`;
+    // Dùng giá trị literal thay vì tham số ($N) để tránh lỗi type inference
+    // của PostgreSQL với LIMIT clause trong extended query protocol.
+    // fetchLimit luôn là integer có kiểm soát (limit + 1), không phải user input.
+    const limitSQL = `LIMIT ${fetchLimit}`;
 
     const sql = `
         SELECT

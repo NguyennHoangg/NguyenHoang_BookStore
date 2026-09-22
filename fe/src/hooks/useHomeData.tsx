@@ -1,39 +1,21 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import bookApi from "../api/book.api";
-import type { Book, Category } from "../api/book.api";
+import type { Book } from "../api/book.api";
 
-export default function useBook(categorySlug?: string) {
-  const [books, setBooks] = useState<Book[]>([]);
-  const [booksLoading, setBooksLoading] = useState(false); // chỉ cho book list
-  const [loading, setLoading] = useState(false);           // cho categories, favorites...
+
+
+export default function useHomeData() {
+    // ── Trang chủ ──
+  const [loading, setLoading] = useState(false);
   const [topSellingLoading, setTopSellingLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
   const [favoriteBooks, setFavoriteBooks] = useState<Book[]>([]);
   const [topSellingBooks, setTopSellingBooks] = useState<Book[]>([]);
   const [newBooks, setNewBooks] = useState<Book[]>([]);
+  
 
-  const [categories, setCategories] = useState<Category[]>([]);
 
-  useEffect(() => {
-    const fetchBooks = async () => {
-      setBooksLoading(true);
-      setError(null);
-      try {
-        const params: { limit: number; category?: string } = { limit: 8 };
-        if (categorySlug) params.category = categorySlug;
-        const response = await bookApi.getBooks(params);
-        setBooks(response.data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : String(err));
-      } finally {
-        setBooksLoading(false);
-      }
-    };
-
-    fetchBooks();
-  }, [categorySlug]);
-
+  // ── Fetch dữ liệu trang chủ ──
   const fetchFavoriteBooks = async () => {
     try {
       setLoading(true);
@@ -71,35 +53,22 @@ export default function useBook(categorySlug?: string) {
     }
   };
 
-  const fetchCategories = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await bookApi.getCategories();
-      setCategories(response.data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  useEffect(() => {
+   useEffect(() => {
     fetchFavoriteBooks();
     fetchTopSellingBooks();
     fecthNewBooks();
-    fetchCategories();
+
   }, []);
 
+
   return {
-    books,
-    booksLoading,
-    loading,
-    topSellingLoading,
-    error,
     favoriteBooks,
     topSellingBooks,
     newBooks,
-    categories,
-  };
+    loading,
+    topSellingLoading,
+    error
+  }
+
 }
