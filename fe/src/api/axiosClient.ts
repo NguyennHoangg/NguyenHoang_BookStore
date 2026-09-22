@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Lấy base URL từ môi trường hoặc dùng mặc định theo API_GUIDE.md
-const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+const baseURL = import.meta.env.VITE_API_URL || 'https://nguyenhoang-bookstore.onrender.com';
 
 const axiosClient = axios.create({
   baseURL,
