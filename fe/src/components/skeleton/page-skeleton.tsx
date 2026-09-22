@@ -10,7 +10,7 @@ export default function PageSkeleton({type, lines} : {type: string, lines: numbe
         </div>
     )
    }
-   if(type === "product"){
+   if(type === "book"){
     return (
         <BookCardSkeleton />
     )

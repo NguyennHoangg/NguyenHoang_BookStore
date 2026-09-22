@@ -9,7 +9,6 @@ const statusCfg: Record<OrderStatus, { bg: string; color: string; label: string 
   cancelled:  { bg: "#fee2e2", color: "#991b1b", label: "Đã huỷ" },
 };
 
-const payLabel: Record<string, string> = { cod: "COD", banking: "CK", card: "Thẻ" };
 const TABS: Array<{ key: OrderStatus | "all"; label: string }> = [
   { key: "all", label: "Tất cả" },
   { key: "processing", label: "Đang xử lý" },

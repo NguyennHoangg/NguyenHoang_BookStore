@@ -26,7 +26,7 @@ const ContactPage = lazy(() => import("./pages/client/ContactPage"));
 function App() {
   return (
     // Suspense bắt buộc phải bọc bên ngoài lazy component
-    <Suspense fallback={<PageSkeleton type="products" lines={10} />}>
+    <Suspense fallback={<PageSkeleton type="book" lines={10} />}>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/error" element={<ErrorPage />} />

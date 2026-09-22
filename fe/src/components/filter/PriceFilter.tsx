@@ -1,45 +1,42 @@
-import Slider from "rc-slider";
+
 import "rc-slider/assets/index.css";
 
 export interface PriceRangeProps {
-  min: number;
-  max: number;
+  options: Array<{
+    id: number;
+    value: string;
+    label: string;
+    min: number;
+    max: number;
+  }>;
   onFilterChange: (value: string) => void;
   currentValue: string;
 }
 
+
+
 export default function PriceFilter({
-  min,
-  max,
+  options,
   currentValue,
   onFilterChange,
 }: PriceRangeProps) {
-  const values = currentValue
-    ? currentValue.split("-").map(Number)
-    : [min, max];
-
   return (
     <div className="flex flex-col gap-4 mt-10">
-     <h3 className="font-serif italic text-[#153328] text-xl">Khoảng giá</h3>
-
-      <Slider
-        className="text-[#0a1813]"
-        range
-        min={min}
-        max={max}
-        step={10000}
-        value={values}
-        onChange={(value) => {
-          if (Array.isArray(value)) {
-            onFilterChange(`${value[0]}-${value[1]}`);
-          }
-        }}
-      />
-
-      <div className="flex justify-between text-sm">
-        <span>{values[0].toLocaleString("vi-VN")}đ</span>
-
-        <span>{values[1].toLocaleString("vi-VN")}đ</span>
+      <h3 className="font-serif italic text-[#153328] text-xl">Khoảng giá</h3>
+      <div className="grid grid-cols-2 gap-4">
+        {options.map((option) => (
+          <button
+            key={option.id}
+            onClick={() => onFilterChange(option.value)}
+            className={`px-3 py-2 rounded-md text-sm transition-colors ${
+              currentValue === option.value
+                ? "bg-[#153328] text-white"
+                : "bg-white text-gray-700 border border-gray-300"
+            }`}
+          >
+            {option.label}
+          </button>
+        ))}
       </div>
     </div>
   );

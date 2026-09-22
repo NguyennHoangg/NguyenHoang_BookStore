@@ -66,7 +66,7 @@ export interface GetCategoriesResponse {
 }
 
 const bookApi = {
-    getBooks(params: { limit?: number; cursor?: string; sortBy?: string; category?: string }): Promise<GetBooksResponse> {
+    getBooks(params: { limit?: number; cursor?: string; sortBy?: string; category?: string; minPrice?: number; maxPrice?: number; rating?: number }): Promise<GetBooksResponse> {
         const url = '/books';
         return axiosClient.get(url, { params }) as Promise<GetBooksResponse>;
     },

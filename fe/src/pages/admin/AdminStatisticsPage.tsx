@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { salesByMonth, topCategories, currencyVnd, orderSeeds } from "./admin.data";
+import { salesByMonth, topCategories, orderSeeds } from "./admin.data";
 
 const maxRev = Math.max(...salesByMonth.map((s) => s.revenue));
 const totalRev = salesByMonth.reduce((a, b) => a + b.revenue, 0);

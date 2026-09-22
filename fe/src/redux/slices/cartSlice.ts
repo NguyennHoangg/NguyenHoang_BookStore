@@ -28,7 +28,7 @@ const initialState: CartState = {
  * @param initialState - trạng thái ban đầu
  * @param reducers - các action
  */
-const CartSlice = createSlice({
+export const CartSlice = createSlice({
     name: 'cart',
     initialState: initialState,
     reducers: {
@@ -59,7 +59,7 @@ const CartSlice = createSlice({
                 existingItem.quantity = quantity;
             }
         },
-        clearCart: (state, action: PayloadAction<void>) => {
+        clearCart: (state) => {
             state.items = [];
         }
     }
