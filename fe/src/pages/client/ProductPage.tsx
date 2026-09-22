@@ -105,7 +105,7 @@ export default function ProductPage() {
 
               <PriceFilter
                 currentValue={
-                  priceRange ? PRICE_RANGE.find((r) => r.min === priceRange[0] && r.max === priceRange[1])?.value : ""
+                  (priceRange ? PRICE_RANGE.find((r) => r.min === priceRange[0] && r.max === priceRange[1])?.value : "") ?? ""
                 }
                 onFilterChange={handlePriceChange}
                 options={PRICE_RANGE}
