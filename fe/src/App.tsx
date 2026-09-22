@@ -5,7 +5,7 @@ import PageSkeleton from "./components/skeleton/page-skeleton";
 // Lazy import: chỉ load khi user truy cập route đó
 const HomePage = lazy(() => import("./pages/client/HomePage"));
 const LoginPage = lazy(() => import("./pages/Login"));
-const NotFoundPage = lazy(() => import("./pages/NotFoundPage"))
+const NotFoundPage = lazy(() => import("./pages/notfoundpage"))
 const ErrorPage = lazy(() => import("./pages/ErrorPage"))
 const ProductDetailPage = lazy(() => import("./pages/client/ProductDetailPage"))
 const AdminLayout = lazy(() => import("./pages/admin/AdminLayout"))
